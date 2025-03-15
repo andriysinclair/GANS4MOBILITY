@@ -53,8 +53,15 @@ def wrangler(merged_df):
 
     # Taking small sample to drop duplicates
 
+    #logging.debug(merged_df)
+
     merged_df_duplicate = merged_df.sample(n=min(1000, len(merged_df)))
+
+    #logging.debug(merged_df_duplicate)
+
     logging.debug(f"Num columns before dropping duplicates: {len(merged_df_duplicate.columns)}")
+
+    #logging.debug(merged_df_duplicate.T)
 
     merged_df_duplicate = merged_df_duplicate.T.drop_duplicates().T
     logging.debug(f"Num columns after dropping duplicates: {len(merged_df_duplicate.columns)}")
@@ -68,10 +75,10 @@ def wrangler(merged_df):
     merged_df_analysis = merged_df.drop(columns=dupe_cols, axis=1)
 
     # Dealing with missing values
-
+    logging.debug("% missing vals per column")
     for col,missing_count in merged_df_analysis.isna().sum().items():
         if missing_count/len(merged_df_analysis) >= 0.001:
-            logging.debug(f"{col}: {missing_count}")
+            logging.debug(f"{col}: {missing_count/len(merged_df_analysis):.2f}")
 
     # Trip start/ end are vital variables so we shall drop them
 
@@ -136,6 +143,8 @@ def wrangler(merged_df):
 
 # Converting all to float
 
+    logging.debug(f"DF was loaded in as a string --> converting to float")
+
     faulty_cols = []
 
 
@@ -180,14 +189,21 @@ def wrangler(merged_df):
     merged_df_analysis = merged_df_analysis.copy()
 
     # encoding num trips
+
+    merged_df_analysis["NumTrips"] = merged_df_analysis.groupby(["IndividualID_x", "TravelWeekDay_B01ID"])["TravelWeekDay_B01ID"].transform("count")
+
+    '''
     num_trips_mapping = dict(zip(merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().index, merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().values))
     merged_df_analysis["NumTrips"] = merged_df_analysis["IndividualID_x"].map(num_trips_mapping)
+    '''
 
     # Removing Na and Dead
     merged_df_analysis = merged_df_analysis[~merged_df_analysis["TripPurpFrom_B01ID"].isin([-8,-10])]
     merged_df_analysis = merged_df_analysis[~merged_df_analysis["TripPurpTo_B01ID"].isin([-8,-10])]
 
     # Simpler Mappings
+
+    
 
     trip_purpose_mapping = {
         1: "Work", 2: "Other", 3: "Other", 4: "Other", 5: "Other",
@@ -202,7 +218,7 @@ def wrangler(merged_df):
 
     merged_df_analysis["TripType"] = list(zip(merged_df_analysis["TripPurpFrom_B01ID"], merged_df_analysis["TripPurpTo_B01ID"]))
 
-    '''
+
     trip_type_mapping = {}
 
     for i,type in enumerate(merged_df_analysis["TripType"].unique()):
@@ -210,21 +226,25 @@ def wrangler(merged_df):
         
     print(f"Trip type mapping")
     for k,v in trip_type_mapping.items():
-        print(f"{k}: {v}")'
-    '''
+        print(f"{k}: {v}")
+
+    # Export mapping
+    with open(data_folder + "/TripType_mapping.pkl", "wb") as f:
+        pickle.dump(trip_type_mapping, f)   
+
 
     merged_df_analysis["TripType"] = merged_df_analysis["TripType"].map(trip_type_mapping)
 
     # Dropping old cols
 
     merged_df_analysis.drop(columns=["TripPurpFrom_B01ID", "TripPurpTo_B01ID"], axis=1, inplace=True, errors="ignore")
-    
+
     return merged_df_analysis
 
 
 
 
-def loader(wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, sample_size = 10000):
+def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, sample_size = 10000, survey_year=2017):
 
     """
     Loads, merges, and processes National Travel Survey (NTS) datasets in chunks.
@@ -299,6 +319,14 @@ def loader(wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nt
 
     day_df = pd.read_csv(nts_day, sep="\t",  dtype=str)
 
+    #logging.debug(f"Filter data frames for SurveyYear == {survey_year}")
+    #i_df = i_df[i_df["SurveyYear"] == survey_year]
+    #vehicle_df = vehicle_df[vehicle_df["SurveyYear"] == survey_year]
+    #psu_df = psu_df[psu_df["SurveyYear"] == survey_year]
+    #household_df = household_df[household_df["SurveyYear"] == survey_year]
+    #day_df = day_df[day_df["SurveyYear"] == survey_year]
+    #logging.debug("Complete!")
+
     # Dropping survey year as it is a nuisance column and not needed
 
     vehicle_df = vehicle_df.drop(columns="SurveyYear", axis=1, errors="ignore")
@@ -308,39 +336,83 @@ def loader(wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nt
 
 # Load Trip DF and merging in chunks
 
-    output_chunks_file = data_folder + "/full_merged_output_chunks.pkl"
+    output_chunks_file = data_folder + f"/{output_file_name}"
 
     merged_chunks = []
 
     for i,trip_df in enumerate(pd.read_csv(nts_trip, sep="\t", chunksize=chunksize, dtype=str)):
         # Filter by car only
         # Taking sample
-        trip_df = trip_df.sample(n=min(sample_size, ))
-        trip_df = trip_df[trip_df["MainMode_B04ID"] == "3"]
-        chunk = trip_df.merge(i_df, on="IndividualID")
-        chunk = chunk.merge(vehicle_df, on="VehicleID")
-        chunk = chunk.merge(psu_df, on="PSUID")
-        chunk.drop(columns=["PSUID", "HouseholdID"], axis=1, inplace=True, errors="ignore")
-        chunk = chunk.merge(day_df, on="DayID")
-        chunk.drop(columns="PSUID", axis=1, inplace=True, errors="ignore")
-        chunk = chunk.merge(household_df, on="HouseholdID")
+        #trip_df = trip_df.sample(n=sample_size)
+        
 
-        # Apply wrangler func
+        #logging.debug(trip_df["SurveyYear"].unique())
 
-        chunk = wrangle_func(chunk)
+        if "3" in trip_df["MainMode_B04ID"].unique():
+            trip_df = trip_df[trip_df["MainMode_B04ID"] == "3"]
+            
+            #logging.debug(trip_df)
 
-        merged_chunks.append(chunk)
+            if str(survey_year) in trip_df["SurveyYear"].unique():
 
-        print(f"\rchunk: {i+1} complete!", end="", flush=True)
+            #logging.debug(trip_df["SurveyYear"].unique())
+            #logging.debug(trip_df["MainMode_B04ID"].unique())
+
+                
+                trip_df = trip_df[trip_df["SurveyYear"] == str(survey_year)]
+
+                #logging.debug(trip_df)
+                chunk = trip_df.merge(i_df, on="IndividualID", how="left")
+                #logging.debug("1st merge")
+                #logging.debug(chunk)
+                chunk = chunk.merge(vehicle_df, on="VehicleID", how="left")
+                #logging.debug("2nd merge")
+                #logging.debug(chunk)
+                chunk = chunk.merge(psu_df, on="PSUID", how="left")
+                #logging.debug("3rd merge")
+                #logging.debug(chunk)
+                chunk.drop(columns=["PSUID", "HouseholdID"], axis=1, inplace=True, errors="ignore")
+                chunk = chunk.merge(day_df, on="DayID", how="left")
+                #logging.debug("4th merge")
+                #logging.debug(chunk)
+                chunk.drop(columns="PSUID", axis=1, inplace=True, errors="ignore")
+                chunk = chunk.merge(household_df, on="HouseholdID", how="left")
+                #logging.debug("5th merge")
+                #logging.debug(chunk)
+                # Apply wrangler func
+
+                #logging.debug(chunk)
+
+                #chunk = wrangle_func(chunk)
+
+                merged_chunks.append(chunk)
+
+                print(f"\rchunk: {i+1} complete!", end="", flush=True)
+
+            else:
+                print(f"\rSurveyYear = {survey_year} not found in chunk {i+1}. Continuing", end="", flush=True)
+                continue
+
+        else:
+            print(f"\rSurveyYear = {survey_year} not found in chunk {i+1}. Continuing", end="", flush=True)
+            continue
+
+    merged_df = pd.concat(merged_chunks, ignore_index=True)
+
+    merged_df = wrangle_func(merged_df)
+
+    # Adding a NumTrips variable
+
+    #merged_df["NumTrips"] = merged_df.groupby(["IndividualID_x", "TravelWeekDay_B01ID"])["TravelWeekDay_B01ID"].transform("count")
 
     with open(output_chunks_file, "wb") as f:
-        pickle.dump(merged_chunks, f)   
+        pickle.dump(merged_df, f)   
 
     print("\nMerged chunks saved to pickle!")
 
     #merged_df = pd.concat(merged_chunks, ignore_index=True)
 
-    #return merged_df
+    return merged_df
 
 
 

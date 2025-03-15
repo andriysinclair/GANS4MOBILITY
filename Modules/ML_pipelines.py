@@ -2,6 +2,7 @@ import pandas as pd
 import logging
 import joblib
 import pickle
+import os
 from pathlib import Path
 from sklearn.ensemble import RandomForestRegressor
 
@@ -129,15 +130,61 @@ def ML_pipeline(df, outcome, corr_cut_off=None, info=True, max_categories=25, co
 
         return X, y
     
-def rf_for_fi(df, outcome, corr_cut_off, max_categories, cols_to_exclude = []):
+def rf_for_fi(df, outcome, corr_cut_off, max_categories, cols_to_exclude = [], refit=False):
+
+    rf_save_file_name = "/Models/rf_model" + "_" + outcome + ".pkl"
 
     X, y = ML_pipeline(df, outcome=outcome, info=False, corr_cut_off=corr_cut_off, max_categories=max_categories, cols_to_exclude=cols_to_exclude)
-    rf = RandomForestRegressor(min_samples_split=20, verbose=0, n_estimators=50)
-    rf.fit(X, y)
 
-    feature_importances = rf.feature_importances_
+    logging.info(len(X.columns))
+    # Check if model exists
+    if os.path.exists(project_folder + rf_save_file_name):
+        logging.info(f"Model: {rf_save_file_name} already exists!")
 
-    columns = X.columns
+        if not refit:
+
+            logging.info(f"Refit set to: {refit}. Loading")
+            with open(project_folder + rf_save_file_name, "rb") as f:
+
+                rf = pickle.load(f)
+
+                feature_importances = rf.feature_importances_
+                logging.info(len(feature_importances))
+
+                columns = rf.feature_names_in_
+                logging.info(len(columns))
+
+
+        if refit:
+            logging.info(f"Refit set to: {refit}. Fitting")
+
+            rf = RandomForestRegressor(min_samples_split=20, verbose=0, n_estimators=50)
+            rf.fit(X, y)
+
+            with open(project_folder + rf_save_file_name, "wb") as f:
+                pickle.dump(rf, f)
+
+            feature_importances = rf.feature_importances_
+            logging.info(len(feature_importances))
+
+            columns = rf.feature_names_in_
+            logging.info(len(columns))
+
+
+    else:  # Fit a new one
+
+        logging.info(f"Model: {rf_save_file_name} does not exist. Fiting...")
+       
+        rf = RandomForestRegressor(min_samples_split=20, verbose=0, n_estimators=50)
+        rf.fit(X, y)
+
+        with open(project_folder + rf_save_file_name, "wb") as f:
+            pickle.dump(rf, f)
+
+        feature_importances = rf.feature_importances_
+
+        columns = rf.feature_names_in_
+
 
     #for col, imp in zip(columns, feature_importances):
         
@@ -161,5 +208,5 @@ if __name__ == "__main__":
 
     cont_outcomes = ["TripStart", "TripEnd", "NumTrips", "TripDisExSW"]
 
-    for outcome in cont_outcomes:
-        ML_pipeline(df=distance_df, outcome=outcome, max_categories=55)
+
+    ML_pipeline(df=distance_df, outcome=cont_outcomes[3], max_categories=55)
