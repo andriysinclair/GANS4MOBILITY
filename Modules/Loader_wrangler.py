@@ -216,6 +216,8 @@ def wrangler(merged_df):
     merged_df_analysis["TripPurpFrom_B01ID"] = merged_df_analysis["TripPurpFrom_B01ID"].map(trip_purpose_mapping)
     merged_df_analysis["TripPurpTo_B01ID"] = merged_df_analysis["TripPurpTo_B01ID"].map(trip_purpose_mapping)
 
+    
+
     merged_df_analysis["TripType"] = list(zip(merged_df_analysis["TripPurpFrom_B01ID"], merged_df_analysis["TripPurpTo_B01ID"]))
 
 
