@@ -1,3 +1,6 @@
 /data
 /logs
 /Models
+Modules/__pycache__/Loader_wrangler.cpython-312.pyc
+Modules/__pycache__/ML_pipelines.cpython-312.pyc
+Modules/__pycache__/__init__.cpython-312.pyc
