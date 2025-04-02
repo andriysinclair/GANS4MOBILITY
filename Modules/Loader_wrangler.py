@@ -192,9 +192,9 @@ def wrangler(merged_df):
 
     merged_df_analysis["NumTrips"] = merged_df_analysis.groupby(["IndividualID_x", "TravelWeekDay_B01ID"])["TravelWeekDay_B01ID"].transform("count")
 
-    '''
     num_trips_mapping = dict(zip(merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().index, merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().values))
     merged_df_analysis["NumTrips"] = merged_df_analysis["IndividualID_x"].map(num_trips_mapping)
+    
     '''
 
     # Removing Na and Dead
@@ -220,7 +220,6 @@ def wrangler(merged_df):
 
     merged_df_analysis["TripType"] = list(zip(merged_df_analysis["TripPurpFrom_B01ID"], merged_df_analysis["TripPurpTo_B01ID"]))
 
-
     trip_type_mapping = {}
 
     for i,type in enumerate(merged_df_analysis["TripType"].unique()):
@@ -232,10 +231,21 @@ def wrangler(merged_df):
 
     # Export mapping
     with open(data_folder + "/TripType_mapping.pkl", "wb") as f:
-        pickle.dump(trip_type_mapping, f)   
+        pickle.dump(trip_type_mapping, f)   '
+    
 
 
-    merged_df_analysis["TripType"] = merged_df_analysis["TripType"].map(trip_type_mapping)
+    merged_df_analysis["TripType"] = merged_df_analysis["TripType"].map(trip_type_mapping)'
+    '''
+
+    merged_df_analysis["IsTrip"] = 1
+
+    missing_mapping ={
+    -8: 0,
+    -9: 0,
+    -10: 0}
+
+
 
     # Dropping old cols
 
@@ -246,7 +256,7 @@ def wrangler(merged_df):
 
 
 
-def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, sample_size = 10000, survey_year=2017):
+def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, sample_size = 10000, survey_years=2017):
 
     """
     Loads, merges, and processes National Travel Survey (NTS) datasets in chunks.
@@ -303,6 +313,9 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
     
     # Load in vehicle df
 
+    # Converting everything to string as everything is loaded in a string
+    survey_years = [str(year) for year in survey_years]
+
     vehicle_df = pd.read_csv(nts_vehicle, sep="\t",  dtype=str)
 
     # Load in Individual df
@@ -355,48 +368,51 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
             
             #logging.debug(trip_df)
 
-            if str(survey_year) in trip_df["SurveyYear"].unique():
+            for year in trip_df["SurveyYear"].unique():
+                if year in survey_years:
+
+            #if str(survey_year) in trip_df["SurveyYear"].unique():
 
             #logging.debug(trip_df["SurveyYear"].unique())
             #logging.debug(trip_df["MainMode_B04ID"].unique())
 
                 
-                trip_df = trip_df[trip_df["SurveyYear"] == str(survey_year)]
+                    trip_df = trip_df[trip_df["SurveyYear"].isin(survey_years)]
 
-                #logging.debug(trip_df)
-                chunk = trip_df.merge(i_df, on="IndividualID", how="left")
-                #logging.debug("1st merge")
-                #logging.debug(chunk)
-                chunk = chunk.merge(vehicle_df, on="VehicleID", how="left")
-                #logging.debug("2nd merge")
-                #logging.debug(chunk)
-                chunk = chunk.merge(psu_df, on="PSUID", how="left")
-                #logging.debug("3rd merge")
-                #logging.debug(chunk)
-                chunk.drop(columns=["PSUID", "HouseholdID"], axis=1, inplace=True, errors="ignore")
-                chunk = chunk.merge(day_df, on="DayID", how="left")
-                #logging.debug("4th merge")
-                #logging.debug(chunk)
-                chunk.drop(columns="PSUID", axis=1, inplace=True, errors="ignore")
-                chunk = chunk.merge(household_df, on="HouseholdID", how="left")
-                #logging.debug("5th merge")
-                #logging.debug(chunk)
-                # Apply wrangler func
+                    #logging.debug(trip_df)
+                    chunk = trip_df.merge(i_df, on="IndividualID", how="left")
+                    #logging.debug("1st merge")
+                    #logging.debug(chunk)
+                    chunk = chunk.merge(vehicle_df, on="VehicleID", how="left")
+                    #logging.debug("2nd merge")
+                    #logging.debug(chunk)
+                    chunk = chunk.merge(psu_df, on="PSUID", how="left")
+                    #logging.debug("3rd merge")
+                    #logging.debug(chunk)
+                    chunk.drop(columns=["PSUID", "HouseholdID"], axis=1, inplace=True, errors="ignore")
+                    chunk = chunk.merge(day_df, on="DayID", how="left")
+                    #logging.debug("4th merge")
+                    #logging.debug(chunk)
+                    chunk.drop(columns="PSUID", axis=1, inplace=True, errors="ignore")
+                    chunk = chunk.merge(household_df, on="HouseholdID", how="left")
+                    #logging.debug("5th merge")
+                    #logging.debug(chunk)
+                    # Apply wrangler func
 
-                #logging.debug(chunk)
+                    #logging.debug(chunk)
 
-                #chunk = wrangle_func(chunk)
+                    #chunk = wrangle_func(chunk)
 
-                merged_chunks.append(chunk)
+                    merged_chunks.append(chunk)
 
-                print(f"\rchunk: {i+1} complete!", end="", flush=True)
+                    print(f"\rchunk: {i+1} complete!", end="", flush=True)
 
-            else:
-                print(f"\rSurveyYear = {survey_year} not found in chunk {i+1}. Continuing", end="", flush=True)
-                continue
+                else:
+                    print(f"\rSurveyYear = {survey_years} not found in chunk {i+1}. Continuing", end="", flush=True)
+                    continue
 
         else:
-            print(f"\rSurveyYear = {survey_year} not found in chunk {i+1}. Continuing", end="", flush=True)
+            print(f"\rMainMode_B04ID = 3 not found in chunk {i+1}. Continuing", end="", flush=True)
             continue
 
     merged_df = pd.concat(merged_chunks, ignore_index=True)
