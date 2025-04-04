@@ -8,10 +8,10 @@ import torch.nn.functional as F
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
-from Transformations import *
 from pathlib import Path
 import random
-from TravNet import train_evaluate_TravNet
+from .TravNet import train_evaluate_TravNet
+from .Transformations import *
 import time
 
 # Setting logging
@@ -92,4 +92,6 @@ def generate_travel_data(N,X=X):
 
     return wide_df, long_df
 
-wide_df, long_df = generate_travel_data(10000)
+if __name__ == "__main__":
+
+    wide_df, long_df = generate_travel_data(10)

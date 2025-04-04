@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib
 import matplotlib.pyplot as plt
-from Transformations import *
+from .Transformations import *
 from pathlib import Path
 import random
 
