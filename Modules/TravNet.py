@@ -6,11 +6,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from Transformations import *
+from pathlib import Path
+import random
 
+# Setting paths
 
+root_folder = str(  Path(__file__).parent.parent   )
+tensors_folder = root_folder + "/tensors"
+Plots_folder = root_folder + "/Plots"
+Models_folder = root_folder + "/Models"
 
 # Define Max Journey Sequence
 
@@ -18,7 +24,7 @@ max_journey_seq = 10
 
 #Load tensors #TODO Get a better file path to your tensors
 
-with open("/home/trapfishscott/Cambridge24.25/D200_ML_econ/ProblemSets/Project/tensors/tensors.pkl", "rb") as f:
+with open(tensors_folder + "/tensors.pkl", "rb") as f:
     (X, y_cont_raw, y_cat_raw) = pickle.load(f)
 
 # GPU?
@@ -113,7 +119,7 @@ max_journey_seq = 10
 
 #Load tensors #TODO Get a better file path to your tensors
 
-with open("/home/trapfishscott/Cambridge24.25/D200_ML_econ/ProblemSets/Project/tensors/tensors.pkl", "rb") as f:
+with open(tensors_folder + "/tensors.pkl", "rb") as f:
     (X, y_cont_raw, y_cat_raw) = pickle.load(f)
 
 # GPU?
@@ -172,48 +178,55 @@ binary_weightings = return_categorical_weightings(y_istrip[:,:,:], num_cats=2)
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
 
-def train_TravNet(i_to_loop,
-                  rnn_model=RNNmodel(),
-                  ce_weighting=ce_weighting,
-                  device=device,
-                  epochs=1,
-                  make_travel_diaries=True,
-                  X=X,
-                  y_ts=y_ts,
-                  y_duration=y_duration,
-                  y_distance=y_distance,
-                  y_purpouse=y_purpouse,
-                  y_istrip = y_istrip):
+def train_evaluate_TravNet(i_to_loop,
+                           trained_model_path,
+                           X=X,
+                           rnn_model=RNNmodel(),
+                           ce_weighting=ce_weighting,
+                           device=device,
+                           epochs=1,
+                           make_travel_diaries=True,
+                           y_ts=y_ts,
+                           y_duration=y_duration,
+                           y_distance=y_distance,
+                           y_purpouse=y_purpouse,
+                           y_istrip = y_istrip,
+                           evaluation = False):
 
-    rnn_model = rnn_model.to(device)
+    if not evaluation:
+        rnn_model = rnn_model.to(device)
+
+    else:
+        rnn_model = rnn_model.to(device)
+        rnn_model.load_state_dict(torch.load(trained_model_path))
+        rnn_model.eval()
 
     seq_length=7
-
-    ce_loss = nn.CrossEntropyLoss(weight=ce_weighting, ignore_index=0).to(device)  #(y_hat, y)
-    mse_loss = nn.MSELoss(reduction="none").to(device)
-    bce_loss = nn.BCEWithLogitsLoss().to(device)
-
-    optimizer = torch.optim.Adam(rnn_model.parameters(), lr=0.0005)
-
-    ts_loss_weight = 1/800
-    dur_loss_weight = 10
-    purpouse_loss_weight = 1
-
-    entropy_weight = 2
     temperature = 5
-    tau = 2
+
+    if not evaluation:
+        ce_loss = nn.CrossEntropyLoss(weight=ce_weighting, ignore_index=0).to(device)  #(y_hat, y)
+        mse_loss = nn.MSELoss(reduction="none").to(device)
+        bce_loss = nn.BCEWithLogitsLoss().to(device)
+
+        optimizer = torch.optim.Adam(rnn_model.parameters(), lr=0.0005)
+
+        ts_loss_weight = 1/800
+        dur_loss_weight = 10
+        purpouse_loss_weight = 1
+
+        entropy_weight = 2
+
+        total_losses = []
+        ts_losses= []
+        dur_losses= []
+        distance_losses = []
+        purpouse_losses = []
+        istrip_losses = []
+        entropy_evol = []
 
     complete_travel_diaries = {}
     complete_travel_diaries_dfs = []
-
-    total_losses = []
-    ts_losses= []
-    dur_losses= []
-    distance_losses = []
-    purpouse_losses = []
-    istrip_losses = []
-    entropy_evol = []
-
 
     for epochi in range(epochs):
 
@@ -227,22 +240,22 @@ def train_TravNet(i_to_loop,
             prediction_matrix_istrip = []
 
             masks = []
-
             entropies = []
 
             # Truth values for that individual
-            true_matrix_ts = y_ts[individual_i, :, 0, :].to(torch.float32)
-            true_matrix_dur = y_duration[individual_i, :, 0, :].to(torch.float32)
-            true_matrix_distance = y_distance[individual_i, :, 0, :].to(torch.float32)
-            true_matrix_purpouse = y_purpouse[individual_i, :, 0, :].reshape(7*max_journey_seq).to(torch.long)
-            true_matrix_istrip = y_istrip[individual_i, :, 0, :].to(torch.float32)
+            if not evaluation:
+                true_matrix_ts = y_ts[individual_i, :, 0, :].to(torch.float32)
+                true_matrix_dur = y_duration[individual_i, :, 0, :].to(torch.float32)
+                true_matrix_distance = y_distance[individual_i, :, 0, :].to(torch.float32)
+                true_matrix_purpouse = y_purpouse[individual_i, :, 0, :].reshape(7*max_journey_seq).to(torch.long)
+                true_matrix_istrip = y_istrip[individual_i, :, 0, :].to(torch.float32)
 
-            logging.debug(f"Matrices of true values shape,ts_te, distance, purpouse, istrip")
-            logging.debug(f"{true_matrix_ts.shape}")
-            logging.debug(f"{true_matrix_dur.shape}")
-            logging.debug(f"{true_matrix_distance.shape}")
-            logging.debug(f"{true_matrix_purpouse.shape}")
-            logging.debug(f"{true_matrix_istrip.shape}")
+                logging.debug(f"Matrices of true values shape,ts_te, distance, purpouse, istrip")
+                logging.debug(f"{true_matrix_ts.shape}")
+                logging.debug(f"{true_matrix_dur.shape}")
+                logging.debug(f"{true_matrix_distance.shape}")
+                logging.debug(f"{true_matrix_purpouse.shape}")
+                logging.debug(f"{true_matrix_istrip.shape}")
 
             travel_diary = X[individual_i, :, 0, :].unsqueeze(1).to(torch.float32)
             logging.debug(travel_diary.shape)
@@ -326,7 +339,8 @@ def train_TravNet(i_to_loop,
 
             masks = torch.cat(masks, 0)
 
-            purpouse_mask = torch.clamp(true_matrix_purpouse.reshape(7,max_journey_seq),max=1)
+            if not evaluation:
+                purpouse_mask = torch.clamp(true_matrix_purpouse.reshape(7,max_journey_seq),max=1)
 
             prediction_matrix_ts = torch.cat(prediction_matrix_ts, 0)
             prediction_matrix_dur = torch.cat(prediction_matrix_dur, 0)
@@ -352,121 +366,122 @@ def train_TravNet(i_to_loop,
 
                 complete_travel_diaries_dfs.append(df)
 
-            # Calculating loss with masks applied
-            logging.debug(f"Matrices prediction/ true in usual order prior to adding to losses")
+            if not evaluation:
 
-            logging.debug(f"Prediction of TS")
-            logging.debug(prediction_matrix_ts*purpouse_mask)
-            logging.debug("")
-            logging.debug(true_matrix_ts)
+                # Calculating loss with masks applied
+                logging.debug(f"Matrices prediction/ true in usual order prior to adding to losses")
 
-            ts_loss = mse_loss(prediction_matrix_ts,  true_matrix_ts)
-            ts_loss = (ts_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
+                logging.debug(f"Prediction of TS")
+                logging.debug(prediction_matrix_ts*purpouse_mask)
+                logging.debug("")
+                logging.debug(true_matrix_ts)
 
-            logging.debug(f"Prediction of DUR")
-            logging.debug(prediction_matrix_dur*purpouse_mask)
-            logging.debug("")
-            logging.debug(true_matrix_dur)
+                ts_loss = mse_loss(prediction_matrix_ts,  true_matrix_ts)
+                ts_loss = (ts_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
 
-            dur_loss = mse_loss(prediction_matrix_dur,  true_matrix_dur)
-            dur_loss = (dur_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
+                logging.debug(f"Prediction of DUR")
+                logging.debug(prediction_matrix_dur*purpouse_mask)
+                logging.debug("")
+                logging.debug(true_matrix_dur)
 
-            logging.debug(f"Prediction of Distance")
-            logging.debug(prediction_matrix_distance*purpouse_mask)
-            logging.debug("")
-            logging.debug(true_matrix_distance)
+                dur_loss = mse_loss(prediction_matrix_dur,  true_matrix_dur)
+                dur_loss = (dur_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
 
-            distance_loss = mse_loss(torch.log(1+prediction_matrix_distance),  torch.log(1+true_matrix_distance) )
-            distance_loss = (distance_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
+                logging.debug(f"Prediction of Distance")
+                logging.debug(prediction_matrix_distance*purpouse_mask)
+                logging.debug("")
+                logging.debug(true_matrix_distance)
 
-            logging.debug(f"Prediction of Purpouse")
-            logging.debug(purpouse_for_show)
-            logging.debug("")
-            logging.debug(true_matrix_purpouse)
+                distance_loss = mse_loss(torch.log(1+prediction_matrix_distance),  torch.log(1+true_matrix_distance) )
+                distance_loss = (distance_loss*purpouse_mask).sum() / (purpouse_mask.sum() + 1e-6)
 
-            purpouse_loss = ce_loss(prediction_matrix_purpouse, true_matrix_purpouse)
+                logging.debug(f"Prediction of Purpouse")
+                logging.debug(purpouse_for_show)
+                logging.debug("")
+                logging.debug(true_matrix_purpouse)
 
-            logging.debug(f"Prediction of Is trip")
-            logging.debug(prediction_matrix_istrip)
-            logging.debug("")
-            logging.debug(true_matrix_istrip)
+                purpouse_loss = ce_loss(prediction_matrix_purpouse, true_matrix_purpouse)
 
-            istrip_loss = bce_loss(prediction_matrix_istrip, true_matrix_istrip)
+                logging.debug(f"Prediction of Is trip")
+                logging.debug(prediction_matrix_istrip)
+                logging.debug("")
+                logging.debug(true_matrix_istrip)
 
-            # RATIONALITY CONDITIONS
+                istrip_loss = bce_loss(prediction_matrix_istrip, true_matrix_istrip)
 
-            # Encouraging entropy
-            purpouse_entropy = torch.stack(entropies, dim=0).mean()
+                # RATIONALITY CONDITIONS
 
-            total_loss = ts_loss*ts_loss_weight + dur_loss*dur_loss_weight + distance_loss + purpouse_loss*purpouse_loss_weight + istrip_loss  + entropy_weight*purpouse_entropy
+                # Encouraging entropy
+                purpouse_entropy = torch.stack(entropies, dim=0).mean()
 
-            logging.debug(f"ts_te Loss requires grad? {ts_loss.requires_grad}")
-            logging.debug(f"Distance Loss requires grad? {distance_loss.requires_grad}")
-            logging.debug(f"Purpouse Loss requires grad? {purpouse_loss.requires_grad}")
-            logging.debug(f"is trip Loss requires grad? {istrip_loss.requires_grad}")
+                total_loss = ts_loss*ts_loss_weight + dur_loss*dur_loss_weight + distance_loss + purpouse_loss*purpouse_loss_weight + istrip_loss  + entropy_weight*purpouse_entropy
 
-            logging.info(f"epoch: {epochi} | individual: {individual_i+1}")
-            logging.info(f"total_loss: {total_loss:.2f}")
+                logging.debug(f"ts_te Loss requires grad? {ts_loss.requires_grad}")
+                logging.debug(f"Distance Loss requires grad? {distance_loss.requires_grad}")
+                logging.debug(f"Purpouse Loss requires grad? {purpouse_loss.requires_grad}")
+                logging.debug(f"is trip Loss requires grad? {istrip_loss.requires_grad}")
 
-            # Appending losses
-            total_losses.append(total_loss.cpu().detach().numpy())
-            ts_losses.append(  (ts_loss*ts_loss_weight).cpu().detach().numpy())
-            dur_losses.append(  (dur_loss*dur_loss_weight).cpu().detach().numpy())
-            distance_losses.append(distance_loss.cpu().detach().numpy())
-            purpouse_losses.append((purpouse_loss*purpouse_loss_weight).cpu().detach().numpy())
-            istrip_losses.append(istrip_loss.cpu().detach().numpy())
-            entropy_evol.append(purpouse_entropy.cpu().detach().numpy())
+                logging.info(f"epoch: {epochi} | individual: {individual_i+1}")
+                logging.info(f"total_loss: {total_loss:.2f}")
 
-            # BACKPROP
-            optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
+                # Appending losses
+                total_losses.append(total_loss.cpu().detach().numpy())
+                ts_losses.append(  (ts_loss*ts_loss_weight).cpu().detach().numpy())
+                dur_losses.append(  (dur_loss*dur_loss_weight).cpu().detach().numpy())
+                distance_losses.append(distance_loss.cpu().detach().numpy())
+                purpouse_losses.append((purpouse_loss*purpouse_loss_weight).cpu().detach().numpy())
+                istrip_losses.append(istrip_loss.cpu().detach().numpy())
+                entropy_evol.append(purpouse_entropy.cpu().detach().numpy())
 
-    plt.figure(figsize=(15, 10))
+                # BACKPROP
+                optimizer.zero_grad()
+                total_loss.backward()
+                optimizer.step()
 
-    plt.suptitle("Plots Showing 1-day ahead and 7-day Losses for all outcome variables.")
+    if not evaluation:
 
-    x_vals = np.arange(i_to_loop)  # Ensure correct x-axis scaling
+        plt.figure(figsize=(15, 10))
 
+        plt.suptitle("Plots Showing 1-day ahead and 7-day Losses for all outcome variables.")
 
+        x_vals = np.arange(i_to_loop)  # Ensure correct x-axis scaling
 
+        plt.subplot(6,1,1)
+        plt.title("TS loss")
+        plt.plot(x_vals, ts_losses, label="ts_te")
+        plt.grid()
 
-    plt.subplot(6,1,1)
-    plt.title("TS loss")
-    plt.plot(x_vals, ts_losses, label="ts_te")
-    plt.grid()
-
-    plt.subplot(6,1,2)
-    plt.title("Dur loss")
-    plt.plot(x_vals, dur_losses, label="ts_te")
-    plt.grid()
-
-
-    plt.subplot(6,1,3)
-    plt.title("Distance loss")
-    plt.plot(x_vals, distance_losses, label="distance")
-    plt.grid()
-
-    plt.subplot(6,1,4)
-    plt.title("Purpouse loss")
-    plt.plot(x_vals, purpouse_losses, label="purpouse")
-    plt.grid()
-
-    plt.subplot(6,1,5)
-    plt.title("Entropy")
-    plt.plot(x_vals, entropy_evol, label="entropy")
-    plt.grid()
+        plt.subplot(6,1,2)
+        plt.title("Dur loss")
+        plt.plot(x_vals, dur_losses, label="ts_te")
+        plt.grid()
 
 
-    plt.subplot(6,1,6)
-    plt.title("Total loss")
-    plt.plot(x_vals, total_losses)
+        plt.subplot(6,1,3)
+        plt.title("Distance loss")
+        plt.plot(x_vals, distance_losses, label="distance")
+        plt.grid()
 
-    plt.grid()
+        plt.subplot(6,1,4)
+        plt.title("Purpouse loss")
+        plt.plot(x_vals, purpouse_losses, label="purpouse")
+        plt.grid()
 
-    plt.tight_layout()
+        plt.subplot(6,1,5)
+        plt.title("Entropy")
+        plt.plot(x_vals, entropy_evol, label="entropy")
+        plt.grid()
 
-    plt.savefig("/home/trapfishscott/Cambridge24.25/D200_ML_econ/ProblemSets/Project/Plots/Losses.png")
+
+        plt.subplot(6,1,6)
+        plt.title("Total loss")
+        plt.plot(x_vals, total_losses)
+
+        plt.grid()
+
+        plt.tight_layout()
+
+        plt.savefig(Plots_folder + "/Losses.pdf", format="pdf", bbox_inches="tight")
 
     # Creating Travel DFs
 
@@ -489,14 +504,28 @@ def train_TravNet(i_to_loop,
 
     # Return fully trained model wide and long complete travel dfs
 
-    return rnn_model, full_df, long_full_df
+    if not evaluation:
+
+        return rnn_model, full_df, long_full_df
+    
+    else:
+        return full_df, long_full_df
 
 
 if  __name__ == "__main__":
 
+    matplotlib.use('Agg')  # Use non-interactive backend
+
     # Checking shape of tensors
 
-    show_config = False
+    # Configure basic logging
+    logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
+
+    logging.info(f"root folder: {root_folder}")
+    logging.info(f"tensors folder: {tensors_folder}")
+    logging.info(f"Plots folder: {Plots_folder}")
+
+    show_config = True
 
     if show_config:
 
@@ -534,22 +563,16 @@ if  __name__ == "__main__":
         for a,b in model.named_parameters():
             print(a,b.shape)
 
-        # Configure basic logging
-        logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
-
     # Train NN
 
-    TravNet, wide_diaries, long_diaries = train_TravNet(i_to_loop=X.shape[0])  # Training on all samples
+    TravNet, wide_diaries, long_diaries = train_evaluate_TravNet(i_to_loop=X.shape[0])  # Training on all samples
 
-    # TODO absolute Models folder
-
-    Modules_folder = "/home/trapfishscott/Cambridge24.25/D200_ML_econ/ProblemSets/Project/Models"
-
-    with open(Modules_folder + "/TravNet.pkl", "wb") as f:
-        pickle.dump(TravNet, f)
-
-    with open(Modules_folder + "/wide_diaries.pkl", "wb") as f:
+    with open(Models_folder + f"/wide_diaries{X.shape[0]}.pkl", "wb") as f:
         pickle.dump(wide_diaries, f)
 
-    with open(Modules_folder + "/long_diaries.pkl", "wb") as f:
+    with open(Models_folder + f"/long_diaries{X.shape[0]}.pkl", "wb") as f:
         pickle.dump(long_diaries, f)
+
+    torch.save(TravNet.state_dict(), Models_folder + f"/TravNet{X.shape[0]}.pt")
+
+

@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-import re
+import numpy as np
 import logging
 import pickle
 
@@ -15,17 +15,8 @@ nts_household = data_folder + "/household_eul_2002-2023.tab"
 nts_psu = data_folder + "/psu_eul_2002-2023.tab"
 nts_day = data_folder + "/day_eul_2002-2023.tab"
 
-trip_type_mapping = {('Home', 'Work'): 0,
-                     ('Home', 'Other'): 1,
-                     ('Other', 'Home'): 2,
-                     ('Work', 'Home'): 3,
-                     ('Other', 'Other'): 4,
-                     ('Work', 'Other'): 5,
-                     ('Other', 'Work'): 6,
-}
 
-
-def wrangler(merged_df):
+def wrangler(merged_df, drop_fraction  = 0.3):
 
     """
     Cleans and processes the merged trip dataset.
@@ -50,6 +41,7 @@ def wrangler(merged_df):
     pandas.DataFrame
         A cleaned and processed DataFrame ready for further analysis or modeling.
     """
+    merged_df = merged_df.copy()
 
     # Taking small sample to drop duplicates
 
@@ -74,11 +66,17 @@ def wrangler(merged_df):
 
     merged_df_analysis = merged_df.drop(columns=dupe_cols, axis=1)
 
+    cols_missing = []
+
     # Dealing with missing values
     logging.debug("% missing vals per column")
     for col,missing_count in merged_df_analysis.isna().sum().items():
         if missing_count/len(merged_df_analysis) >= 0.001:
-            logging.debug(f"{col}: {missing_count/len(merged_df_analysis):.2f}")
+            logging.info(f"{col}: {missing_count/len(merged_df_analysis):.2f}")
+
+        if missing_count/len(merged_df_analysis) >= drop_fraction:
+            cols_missing.append(col)
+
 
     # Trip start/ end are vital variables so we shall drop them
 
@@ -91,6 +89,7 @@ def wrangler(merged_df):
 
     vars_to_drop_na = ["TripStartHours", "TripStartMinutes", "TripStart", "TripEndHours", "TripEndMinutes", "TripEnd" ]
 
+    # Dropping all rows
     merged_df_analysis = merged_df_analysis.dropna(subset=vars_to_drop_na)
 
     '''
@@ -113,7 +112,7 @@ def wrangler(merged_df):
 
     ---> Drop all
     
-    '''
+    
 
     cols_to_drop_missing = [
         "QLeaHous",
@@ -130,12 +129,13 @@ def wrangler(merged_df):
         "VehBusMile",
         "VehPriMile"
     ]
+    '''
 
-    merged_df_analysis = merged_df_analysis.drop(columns=cols_to_drop_missing, axis=1, errors="ignore")
+    merged_df_analysis = merged_df_analysis.drop(columns=cols_missing, axis=1, errors="ignore")
 
     # All other columns are insignificant --> drop
 
-    merged_df_analysis = merged_df_analysis.dropna()
+    #merged_df_analysis = merged_df_analysis.dropna()
     merged_df_analysis = merged_df_analysis.copy()
     merged_df_analysis.reset_index(drop=True, inplace=True)
 
@@ -240,13 +240,6 @@ def wrangler(merged_df):
 
     merged_df_analysis["IsTrip"] = 1
 
-    missing_mapping ={
-    -8: 0,
-    -9: 0,
-    -10: 0}
-
-
-
     # Dropping old cols
 
     merged_df_analysis.drop(columns=["TripPurpFrom_B01ID", "TripPurpTo_B01ID"], axis=1, inplace=True, errors="ignore")
@@ -256,7 +249,9 @@ def wrangler(merged_df):
 
 
 
-def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, sample_size = 10000, survey_years=2017):
+def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, 
+           nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, 
+           sample_size = 10000, survey_years=2017, drop_fraction=0.3):
 
     """
     Loads, merges, and processes National Travel Survey (NTS) datasets in chunks.
@@ -417,7 +412,18 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
 
     merged_df = pd.concat(merged_chunks, ignore_index=True)
 
+    # Apply missing mapping
+
+    missing_mapping ={
+    str(-8): np.nan,
+    str(-9): np.nan,
+    str(-10): np.nan}
+
+    merged_df = merged_df.replace(missing_mapping).infer_objects(copy=False)
+
     merged_df = wrangle_func(merged_df)
+
+    merged_df = merged_df.fillna(0)
 
     # Adding a NumTrips variable
 
@@ -435,5 +441,13 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
 
 
 if __name__ == "__main__":
-    print(data_folder)
+
+    # Configure basic logging
+    logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
+
+    # Define data range
+
+    years_to_extract = list(range(2017,2018))
+
+    df = loader(output_file_name="merged_df2017.pkl", chunksize=100000, sample_size=100000, survey_years=years_to_extract)
 
