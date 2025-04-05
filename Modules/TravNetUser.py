@@ -19,6 +19,28 @@ import time
 logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
 
 class TravNet:
+    """
+    A class to load the TravNet model, generate synthetic travel data, evaluate it,
+    and visualize aggregate statistics.
+
+    This class handles loading of saved model checkpoints, evaluation data, and real datasets.
+    It allows for generating travel diaries, comparing synthetic and real data, and plotting results.
+
+    Attributes:
+        root_folder (str): Root directory of the project.
+        tensors_folder (str): Path to folder with training tensors.
+        Plots_folder (str): Path to folder for saving plots.
+        Models_folder (str): Path to folder containing trained models.
+        Results_folder (str): Path to folder for saving result files.
+        data_folder (str): Path to folder containing real NTS data.
+        X (torch.Tensor): Feature tensor loaded from file.
+        y_cont_raw (Any): Continuous target values.
+        y_cat_raw (Any): Categorical target values.
+        device (torch.device): CUDA or CPU device for model execution.
+        model_extension (str): File path extension for loading TravNet model.
+        results (pd.DataFrame): Generated travel diary results.
+        nts_df (pd.DataFrame): Ground truth travel data from NTS survey.
+    """
     def __init__(self):
 
         # Setting paths
@@ -54,6 +76,18 @@ class TravNet:
             self.nts_df = pickle.load(f)
 
     def generate_travel_data(self,N, return_df = False):
+        """
+        Generate synthetic travel diary data for N individuals using the TravNet model.
+
+        Args:
+            N (int): Number of synthetic individuals to generate.
+            return_df (bool, optional): Whether to return the generated dataframes. Defaults to False.
+
+        Returns:
+            Tuple[pd.DataFrame, pd.DataFrame], optional: 
+                - wide_df: Wide-format travel diary.
+                - long_df: Long-format travel diary.
+        """
 
         X_eval_full = self.X[:,:,:,:].to(self.device)
 
@@ -113,6 +147,16 @@ class TravNet:
             return wide_df, long_df
         
     def get_agg_stats(self, data_real, data_gen):
+        """
+        Compute basic aggregate statistics (mean, median, std) for real and generated data.
+
+        Args:
+            data_real (pd.DataFrame): Ground truth travel data.
+            data_gen (pd.DataFrame): Generated synthetic travel data.
+
+        Returns:
+            Tuple[pd.DataFrame, pd.DataFrame]: Aggregate statistics for generated and real data.
+        """
 
         data_gen = data_gen.drop(["i_id", "IsTrip"], axis=1)
         data_gen["DoW"]+=1
@@ -139,6 +183,13 @@ class TravNet:
         return gen_stats, real_stats
     
     def output_aggregate_stats(self):
+        """
+        Print and compare aggregate statistics between generated and real datasets.
+
+        Outputs:
+            - Purpose distribution
+            - Mean, median, and standard deviation of trip features overall and per purpose
+        """
 
         # Plotting value counts of purpouse
         print("Purpouse Value counts (Gen)")
@@ -180,6 +231,15 @@ class TravNet:
     
 
     def create_histograms(self, variable_real, variable_gen, purpouse, percentile=None):
+        """
+        Create and display histograms for a given variable across real and generated data.
+
+        Args:
+            variable_real (str): Column name of the variable in the real dataset.
+            variable_gen (str): Column name of the variable in the generated dataset.
+            purpouse (int): Categorical purpose ID to filter by.
+            percentile (float, optional): Maximum percentile threshold to filter outliers.
+        """
 
         data_real = self.nts_df.copy()
 

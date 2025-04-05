@@ -69,6 +69,25 @@ normalised_mp_minute = log_transformer(1.1667)  # *normalised minute
 
 
 class RNNmodel(nn.Module):
+    """
+    A recurrent neural network model for predicting travel-related outcomes.
+
+    This model uses a multi-layer RNN followed by distinct output heads to predict:
+    - Trip start time
+    - Trip duration
+    - Trip distance
+    - Trip purpose (categorical)
+    - Whether a trip occurred (binary)
+
+    Attributes:
+        rnn (nn.RNN): Core recurrent layer.
+        output_ts (nn.Linear): Output layer for predicting trip start time.
+        output_dur (nn.Linear): Output layer for predicting trip duration.
+        output_dist (nn.Linear): Output layer for predicting trip distance.
+        output_purp (nn.Linear): Output layer for predicting trip purpose logits.
+        output_bin (nn.Linear): Output layer for predicting binary trip occurrence.
+        T (float): Temperature scaling factor for categorical logits.
+    """
     def __init__(self):
         super().__init__()
 
@@ -151,6 +170,21 @@ y_duration = y_te - y_ts
 # Calculating probability weights for categorical
 
 def return_categorical_weightings(array, num_cats = 24):
+    """
+    Compute class weights for categorical cross-entropy loss based on label frequencies.
+
+    This function calculates inverse frequency-based weights for each class label in the input tensor.
+    Optionally logs and normalizes the weights to prevent extreme imbalances. Special handling is
+    applied if the number of categories is 24, where index 17 ("short walk") is excluded.
+
+    Args:
+        array (torch.Tensor): A tensor of categorical labels (1D or flattened).
+        num_cats (int, optional): Total number of categories. Defaults to 24.
+
+    Returns:
+        torch.Tensor: A tensor of normalized weights for each category, suitable for use in
+        weighted cross-entropy loss.
+    """
     unique_vals, counts = torch.unique(array, return_counts=True)
 
     # 17 is missing this refers to "short walk", not relevant for our data, but will be kept for reference
@@ -195,6 +229,34 @@ def train_evaluate_TravNet(i_to_loop,
                            y_purpouse=y_purpouse,
                            y_istrip = y_istrip,
                            evaluation = False):
+    """
+    Train and/or evaluate the TravNet model for generating travel diaries.
+
+    Trains the RNN-based TravNet model on sequential mobility data or evaluates
+    a pretrained model by generating weekly travel diaries. Optionally returns
+    loss plots and diary data in both wide and long formats.
+
+    Args:
+        i_to_loop (int): Number of individuals to loop through for training/evaluation.
+        trained_model_path (str): Path to load the pretrained model (only used in evaluation mode).
+        X (torch.Tensor): Input tensor of features with shape (N, 7+1, 1, features).
+        rnn_model (nn.Module): The RNN model used for prediction and training.
+        ce_weighting (torch.Tensor): Class weights for the categorical cross-entropy loss.
+        device (str): Torch device (e.g., 'cuda' or 'cpu').
+        epochs (int): Number of training epochs.
+        make_travel_diaries (bool): Whether to generate travel diaries after prediction.
+        y_ts (torch.Tensor): Ground truth trip start times.
+        y_duration (torch.Tensor): Ground truth trip durations.
+        y_distance (torch.Tensor): Ground truth trip distances.
+        y_purpouse (torch.Tensor): Ground truth trip purposes.
+        y_istrip (torch.Tensor): Ground truth binary indicator if a trip occurred.
+        evaluation (bool): Flag to indicate evaluation mode (uses pretrained model).
+
+    Returns:
+        Tuple[nn.Module, pd.DataFrame, pd.DataFrame] or Tuple[pd.DataFrame, pd.DataFrame]:
+        If training: trained model, wide-format travel diary DataFrame, long-format diary DataFrame.
+        If evaluation: wide-format travel diary DataFrame, long-format diary DataFrame.
+    """
 
     if not evaluation:
         rnn_model = rnn_model.to(device)
@@ -525,6 +587,23 @@ def train_evaluate_TravNet(i_to_loop,
 def show_model_specs(index, X=X, y_istrip=y_istrip, y_ts =y_ts, y_te=y_te, 
                      y_distance=y_distance, y_duration = y_duration,
                      y_purpouse=y_purpouse, ce_weighting = ce_weighting, model=RNNmodel()):
+    """
+    show_model_specs 
+
+    Shows info about the tensors and the model
+
+    Args:
+        index (int): individual, whos values to check
+        X (torch.tensor, optional): Input tensor. Defaults to X.
+        y_istrip (torch.tensor, optional): tensor for IsTrip. Defaults to y_istrip.
+        y_ts (torch.tensor, optional): TripStart. Defaults to y_ts.
+        y_te (torch.tensor, optional): TripEnd. Defaults to y_te.
+        y_distance (torch.tensor, optional): Distance. Defaults to y_distance.
+        y_duration (torch.tensor, optional): Duration. Defaults to y_duration.
+        y_purpouse (torch.tensor, optional): Purpouse. Defaults to y_purpouse.
+        ce_weighting (torch.tensor, optional): Weightings for purpouse. Defaults to ce_weighting.
+        model (torch.NN, optional): neural net class. Defaults to RNNmodel().
+    """    
     
     logging.info(f"root folder: {root_folder}")
     logging.info(f"tensors folder: {tensors_folder}")

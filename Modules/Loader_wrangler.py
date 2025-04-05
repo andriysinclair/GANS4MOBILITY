@@ -17,30 +17,17 @@ nts_psu = data_folder + "/psu_eul_2002-2023.tab"
 nts_day = data_folder + "/day_eul_2002-2023.tab"
 
 
-def wrangler(merged_df, drop_fraction  = 0.3):
-
+def wrangler(merged_df, drop_fraction  = 0.3) -> pd.DataFrame:
     """
-    Cleans and processes the merged trip dataset.
+    Applied to the merged DataFrame. Drops columns with excessive missing values. and performs basic cleaning.
+    Used in conjunction with loader function.
 
-    This function performs the following steps:
-    - Drops duplicate columns based on a sample of 1000 rows.
-    - Removes rows with missing values in crucial trip-related columns (e.g., Trip Start/End times).
-    - Drops additional columns with high missing values or redundant information.
-    - Converts all numerical columns to float, handling any conversion errors.
-    - Encodes the number of trips per individual.
-    - Maps trip purposes into simplified categories (Work, Home, Other).
-    - Creates a "TripType" column based on start and destination trip purposes.
-    - Drops unnecessary ID columns and old categorical columns after mapping.
-
-    Parameters:
-    -----------
-    merged_df : pandas.DataFrame
-        A DataFrame containing merged trip, individual, vehicle, household, PSU, and day data.
+    Args:
+        merged_df (pd.DataFrame): The merged df.    
+        drop_fraction (float, optional): The minimum number of missing values before columns is dropped. Defaults to 0.3.
 
     Returns:
-    --------
-    pandas.DataFrame
-        A cleaned and processed DataFrame ready for further analysis or modeling.
+        pd.DataFrame: Cleaned DataFrame
     """
     merged_df = merged_df.copy()
 
@@ -92,45 +79,6 @@ def wrangler(merged_df, drop_fraction  = 0.3):
 
     # Dropping all rows
     merged_df_analysis = merged_df_analysis.dropna(subset=vars_to_drop_na)
-
-    '''
-    QLeaHous: 413346   -> "How many times did you leave the house yesterday - actual number"
-    FarWalk: 363596 -> "Time last long walk took - minutes - actual time" # Has a banded version: "Time last long walk took - minutes - banded time"
-
-    DistWalk: 523930 -> "Distance of last long walk - miles - actual distance", has a banded version
-    IntPlane: 120431 -> "Number of international plane trips in last 12 months - actual number", has a banded version
-    DTJbYear: 395771 -> "Date left last paid job - year element"
-    SchAgeAcc: 524130 -> "Age first unaccompanied to school - actual age"
-    ReNDNaM_B01ID: 366718 -> "Main reason do not drive"
-    ReNDNbM_B01ID: 366718 -> "Main reason do not drive"
-    CycMore_B01ID: 366718 -> "Amount of cycling compared to this time last year"
-    Cycle4w_B01ID: 366718 -> "Whether ridden a bicycle during the last 4 weeks"
-    ResMNCy_B01ID: 366718 -> "Main reason for not cycling more"
-    DVLALength: 94114 -> "Vehicle length from the DVLA database - mm - actual length", contains a banded version
-    VehComMile: 22566 -> "Annual vehicle commuting mileage - actual mileage", contains banded
-    VehBusMile: 22562 -> "Annual vehicle business mileage - actual mileage", contains banded
-    VehPriMile: 22566 -> "Annual vehicle private mileage - actual mileage", contains banded
-
-    ---> Drop all
-    
-    
-
-    cols_to_drop_missing = [
-        "QLeaHous",
-        "FarWalk",
-        "DistWalk",
-        "IntPlane",
-        "DTJbYear",
-        "ReNDNaM_B01ID",
-        "CycMore_B01ID",
-        "Cycle4w_B01ID",
-        "ResMNCy_B01ID",
-        "DVLALength",
-        "VehComMile",
-        "VehBusMile",
-        "VehPriMile"
-    ]
-    '''
 
     merged_df_analysis = merged_df_analysis.drop(columns=cols_missing, axis=1, errors="ignore")
 
@@ -196,49 +144,7 @@ def wrangler(merged_df, drop_fraction  = 0.3):
     num_trips_mapping = dict(zip(merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().index, merged_df_analysis.groupby("IndividualID_x")["JourSeq"].max().values))
     merged_df_analysis["NumTrips"] = merged_df_analysis["IndividualID_x"].map(num_trips_mapping)
     
-    '''
-
-    # Removing Na and Dead
-    merged_df_analysis = merged_df_analysis[~merged_df_analysis["TripPurpFrom_B01ID"].isin([-8,-10])]
-    merged_df_analysis = merged_df_analysis[~merged_df_analysis["TripPurpTo_B01ID"].isin([-8,-10])]
-
-    # Simpler Mappings
-
     
-
-    trip_purpose_mapping = {
-        1: "Work", 2: "Other", 3: "Other", 4: "Other", 5: "Other",
-        6: "Other", 7: "Other", 8: "Other", 9: "Other", 10: "Other",
-        11: "Other", 12: "Other", 13: "Other", 14: "Other", 15: "Other",
-        16: "Other", 17: "Other", 18: "Other", 19: "Other", 20: "Other",
-        21: "Other", 22: "Other", 23: "Home",
-    }
-
-    merged_df_analysis["TripPurpFrom_B01ID"] = merged_df_analysis["TripPurpFrom_B01ID"].map(trip_purpose_mapping)
-    merged_df_analysis["TripPurpTo_B01ID"] = merged_df_analysis["TripPurpTo_B01ID"].map(trip_purpose_mapping)
-
-    
-
-    merged_df_analysis["TripType"] = list(zip(merged_df_analysis["TripPurpFrom_B01ID"], merged_df_analysis["TripPurpTo_B01ID"]))
-
-    trip_type_mapping = {}
-
-    for i,type in enumerate(merged_df_analysis["TripType"].unique()):
-        trip_type_mapping[type] = i
-        
-    print(f"Trip type mapping")
-    for k,v in trip_type_mapping.items():
-        print(f"{k}: {v}")
-
-    # Export mapping
-    with open(data_folder + "/TripType_mapping.pkl", "wb") as f:
-        pickle.dump(trip_type_mapping, f)   '
-    
-
-
-    merged_df_analysis["TripType"] = merged_df_analysis["TripType"].map(trip_type_mapping)'
-    '''
-
     merged_df_analysis["IsTrip"] = 1
 
     # Dropping old cols
@@ -252,62 +158,34 @@ def wrangler(merged_df, drop_fraction  = 0.3):
 
 def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, 
            nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, 
-           sample_size = 10000, survey_years=2017, drop_fraction=0.3, return_raw=False, features = cfg.features, outcomes = cfg.outcomes,
-           extra_vars = cfg.extra_vars, features_one_hot = cfg.features_one_hot):
-
+            survey_years=[2017], drop_fraction=0.3, return_raw=False, features = cfg.features, outcomes = cfg.outcomes,
+           extra_vars = cfg.extra_vars, features_one_hot = cfg.features_one_hot) -> pd.DataFrame:
     """
-    Loads, merges, and processes National Travel Survey (NTS) datasets in chunks.
+    loader 
 
-    This function performs the following steps:
-    - Loads multiple NTS datasets: trip, individual, vehicle, household, PSU, and day.
-    - Merges these datasets on appropriate keys (e.g., IndividualID, VehicleID, HouseholdID).
-    - Filters trips to include only car trips (`MainMode_B04ID == "3"`).
-    - Drops unnecessary columns such as "SurveyYear".
-    - Processes the dataset in chunks to handle large file sizes efficiently.
-    - Applies a user-defined wrangling function (`wrangle_func`) to clean and preprocess the merged data.
-    - Concatenates processed chunks into a single DataFrame.
+    Loads Individual NTS datasets and merges on unique identifiers. Afterwords, can subset on variables in config.py
 
-    Parameters:
-    -----------
-    wrangle_func : function, optional (default=wrangler)
-        A function to apply preprocessing and feature engineering to the merged dataset.
-    
-    nts_trip : str, optional
-        File path for the trip dataset.
-
-    nts_vehicle : str, optional
-        File path for the vehicle dataset.
-
-    nts_i : str, optional
-        File path for the individual dataset.
-
-    nts_household : str, optional
-        File path for the household dataset.
-
-    nts_psu : str, optional
-        File path for the PSU dataset.
-
-    nts_day : str, optional
-        File path for the day dataset.
-
-    chunksize : int, optional (default=100000)
-        Number of rows to load at a time for efficient processing of large datasets.
-
-    sample_size: int, optional (default=10000)
-        Number of rows to draw from each chunk (to save memory)
-
-    return_raw : bool, optional (default=False)
-        If True, returns the raw merged DataFrame before applying wrangling.
-
-    info : bool, optional (default=False)
-        If True, prints additional debug information during processing.
+    Args:
+        output_file_name (str): file name - saved in \data
+        wrangle_func (func, optional): Function used to wrangle data. Defaults to wrangler.
+        nts_trip (str, optional): path to trip data. Defaults to nts_trip.
+        nts_vehicle (str, optional): path to vehicle data. Defaults to nts_vehicle.
+        nts_i (str, optional): path to individual data. Defaults to nts_i.
+        nts_household (str, optional): path to household data. Defaults to nts_household.
+        nts_psu (str, optional): path to PSU data. Defaults to nts_psu.
+        nts_day (str, optional): path to day data. Defaults to nts_day.
+        chunksize (int, optional): Chunks to load at once as dataset is HUGE. Defaults to 100000.
+        survey_years (list, optional): years to extract MUST BE IN LIST. Defaults to 2017.
+        drop_fraction (float, optional): min % of missing values to drop a column. Defaults to 0.3.
+        return_raw (bool, optional): Returns data subsetted based on config.py. Otherwise returns data with all columns. Defaults to False.
+        features (_type_, optional): features (if return_raw=False). Defaults to cfg.features.
+        outcomes (_type_, optional): outcomes (if return_raw=False). Defaults to cfg.outcomes.
+        extra_vars (_type_, optional): extra_vars (if return_raw=False). Defaults to cfg.extra_vars.
+        features_one_hot (_type_, optional): features_one_hot (if return_raw=False). Defaults to cfg.features_one_hot.
 
     Returns:
-    --------
-    pandas.DataFrame
-        A fully merged and processed DataFrame containing travel data.
-    """
-    
+        pd.DataFrame: Either full merged data frame or subsetted based on config.py (depending on return_raw)
+    """    
     # Load in vehicle df
 
     # Converting everything to string as everything is loaded in a string

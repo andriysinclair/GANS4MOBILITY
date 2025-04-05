@@ -5,6 +5,19 @@ import pandas as pd
 # Cyclical encoder
 
 def apply_cyclical_encoding(column, type_, max_val):
+    """
+    apply_cyclical_encoding 
+
+    Applies cyclical encoding
+
+    Args:
+        column (str): col to encode
+        type_ (str): cos or sine, need one of each for cyclical encoding
+        max_val (int): largest value in the column
+
+    Returns:
+        int: returns the cyclical encoding for a numper, usually used with pd.apply
+    """    
 
     if type_ == "cos":
         return np.cos(2 * np.pi * column/ max_val)
@@ -13,6 +26,20 @@ def apply_cyclical_encoding(column, type_, max_val):
 
 
 def custom_numerical_scaler(x, x_min, x_max, inverse=False):
+    """
+    custom_numerical_scaler 
+
+    Designed to scale TripStart and TripEnd
+
+    Args:
+        x (int): column entry
+        x_min (int): minimum value, usually 0  
+        x_max (int): maximum, usually 60*24
+        inverse (bool, optional): inverse. Defaults to False.
+
+    Returns:
+        int: to be used with pd.apply
+    """    
     if not inverse:
         x_scaled = (x-x_min)/(x_max - x_min)
         return x_scaled
