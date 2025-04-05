@@ -62,8 +62,8 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 **From a Python session:**
 1. Run ` from Modules.TravNetUser import TravNet` to import the `TravNet` class.
 2. Create an instance `travnet = TravNet()`
-3. Run `wide_df, long_df = travnet.generate_travel_data(N)`, where `N` is the number of individuals for whom you want to generate weekly travel schedules.
-4. This returns travel schedules (pd.DataFrame) in wide and long format and saves the long format in `/Results_N` as a `.pkl`.
+3. Run `travnet.generate_travel_data(N)`, where `N` is the number of individuals for whom you want to generate weekly travel schedules.
+4. if you run `travnet.generate_travel_data(N, return_df=True)`This returns travel schedules (pd.DataFrame) in wide and long format and saves the long format in `/Results_N` as a `.pkl`. If `return_df=False` (default) then the long format is just saved as a pkl.
 5. Run `travnet.output_aggregate_stats()` to print aggregate stats from real and generated data.
 6. Run `travnet.plot_histograms()` to plot histograms, which will save to `/Plots`.
 

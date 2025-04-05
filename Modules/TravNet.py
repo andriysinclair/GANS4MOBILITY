@@ -200,7 +200,7 @@ binary_weightings = return_categorical_weightings(y_istrip[:,:,:], num_cats=2)
 logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
 
 def train_evaluate_TravNet(i_to_loop,
-                           trained_model_path=None,
+                           trained_model_path=Models_folder + "/TravNet6952.pt",
                            X=X,
                            rnn_model=RNNmodel(),
                            ce_weighting=ce_weighting,
@@ -264,7 +264,7 @@ def train_evaluate_TravNet(i_to_loop,
 
     else:
         rnn_model = rnn_model.to(device)
-        rnn_model.load_state_dict(torch.load(trained_model_path))
+        rnn_model.load_state_dict(torch.load(trained_model_path, map_location=device))
         rnn_model.eval()
 
     seq_length=7
