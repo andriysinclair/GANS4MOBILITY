@@ -83,6 +83,15 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 ├── pyproject.toml               # Project metadata
 └── ReadMe.md                    # This file
 
+**Under \Modules we have:**
+* `config.py`: Encoders, features etc. that are used to set up data for model training.
+* `loader_wrangler.py`: Functions to merge NTS datasets and perform basic cleaning.
+* `ToTensor.py`: Transforms data to wide format for every individual in the dataset then makes tensors for training.
+* `Transformations.py`: Contains custom transformers like cyclical, log, MinMax and a function to plot correlations for variable selection.
+* `TravNet.py`: Contains the PyTorch model class and training loop.
+* `TravNetUser.py`: Contains the `TravNet` class, that contains all user-level functions for generating data and plotting.
+
+
 ## Version History
 
 * v0.0.1 - Pre-release
