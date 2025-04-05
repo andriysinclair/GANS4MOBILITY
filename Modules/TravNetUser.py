@@ -14,6 +14,14 @@ from .TravNet import train_evaluate_TravNet
 from .Transformations import *
 import time
 
+# Loading Tensors
+
+root_folder = str(  Path(__file__).parent.parent   )
+tensors_folder = root_folder + "/tensors"
+
+with open(tensors_folder + "/tensors.pkl", "rb") as f:
+    (X, y_cont_raw, y_cat_raw) = pickle.load(f)
+
 # Setting logging
 
 logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
@@ -41,7 +49,7 @@ class TravNet:
         results (pd.DataFrame): Generated travel diary results.
         nts_df (pd.DataFrame): Ground truth travel data from NTS survey.
     """
-    def __init__(self):
+    def __init__(self, X=X):
 
         # Setting paths
 
@@ -54,8 +62,7 @@ class TravNet:
 
         # Loading Tensors
 
-        with open(self.tensors_folder + "/tensors.pkl", "rb") as f:
-            (self.X, self.y_cont_raw, self.y_cat_raw) = pickle.load(f)
+        self.X = X
 
         # GPU?
 
@@ -309,7 +316,7 @@ class TravNet:
             plt.legend()
             
 
-            plt.savefig(self.Plots_folder + "/Results_hist.pdf", format="pdf", bbox_inches="tight")
+            plt.savefig(self.Plots_folder + f"/Results_hist_{self.results.shape[0]}.pdf", format="pdf", bbox_inches="tight")
         
 
 if __name__ == "__main__":

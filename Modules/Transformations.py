@@ -6,18 +6,19 @@ import pandas as pd
 
 def apply_cyclical_encoding(column, type_, max_val):
     """
-    apply_cyclical_encoding 
+    Apply cyclical encoding to a time-based or periodic variable.
 
-    Applies cyclical encoding
+    Converts a scalar value into its cyclical representation using sine or cosine transformation.
+    Commonly used for features like hours of the day or days of the week.
 
     Args:
-        column (str): col to encode
-        type_ (str): cos or sine, need one of each for cyclical encoding
-        max_val (int): largest value in the column
+        column (float): Value to encode.
+        type_ (str): Type of transformation to apply. Must be either "cos" or "sine".
+        max_val (int): Maximum value of the cycle (e.g., 24 for hours in a day).
 
     Returns:
-        int: returns the cyclical encoding for a numper, usually used with pd.apply
-    """    
+        float: Transformed cyclical value.
+    """
 
     if type_ == "cos":
         return np.cos(2 * np.pi * column/ max_val)
@@ -27,19 +28,19 @@ def apply_cyclical_encoding(column, type_, max_val):
 
 def custom_numerical_scaler(x, x_min, x_max, inverse=False):
     """
-    custom_numerical_scaler 
+    Scale or unscale a numerical value to the [0, 1] range.
 
-    Designed to scale TripStart and TripEnd
+    Designed for values like TripStart or TripEnd time in minutes. Supports inverse scaling.
 
     Args:
-        x (int): column entry
-        x_min (int): minimum value, usually 0  
-        x_max (int): maximum, usually 60*24
-        inverse (bool, optional): inverse. Defaults to False.
+        x (float): Value to scale or unscale.
+        x_min (float): Minimum value in the original scale.
+        x_max (float): Maximum value in the original scale.
+        inverse (bool, optional): Whether to apply inverse transformation. Defaults to False.
 
     Returns:
-        int: to be used with pd.apply
-    """    
+        float: Scaled or unscaled value.
+    """
     if not inverse:
         x_scaled = (x-x_min)/(x_max - x_min)
         return x_scaled
@@ -49,6 +50,18 @@ def custom_numerical_scaler(x, x_min, x_max, inverse=False):
     
 
 def log_transformer(x, inverse=False):
+    """
+    Apply log or exponential transformation.
+
+    Transforms a non-negative variable using log(1 + x), or reverses it using exp(x) - 1.
+
+    Args:
+        x (float): Value to transform.
+        inverse (bool, optional): Whether to apply the inverse transformation. Defaults to False.
+
+    Returns:
+        float: Transformed or inverse-transformed value.
+    """
     if not inverse:
         return np.log1p(x)
     else:
@@ -56,6 +69,20 @@ def log_transformer(x, inverse=False):
     
 
 def return_correlated_columns(df, ro, outcome_col="TripPurpose_B01ID"):
+    """
+    Identify columns that are correlated with a specified outcome variable.
+
+    Optionally applies one-hot encoding to categorical outcomes before computing correlation.
+    Returns a list of numerical features that exceed the given correlation threshold.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        ro (float): Correlation threshold (absolute value).
+        outcome_col (str, optional): Name of the target column. Defaults to "TripPurpose_B01ID".
+
+    Returns:
+        List[str]: List of column names with absolute correlation above threshold.
+    """
 
     df = df.copy()
     df = df.drop(columns=["TripPurpose_B02ID", "TripPurpose_B04ID"], axis=1, errors="ignore")

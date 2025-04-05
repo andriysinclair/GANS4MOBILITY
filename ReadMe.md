@@ -57,20 +57,31 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 
 ### Executing program
 
-**From a Python session:**
-1. Run ` from Modules.TravNetUser import generate_travel_data`
-2. Run `wide_df, long_df = generate_travel_data(N)`, where `N` is the number of individuals for whom you want to generate weekly travel schedules.
-3. This returns travel schedules in wide and long format and saves the long format in `/Results` as a `.pkl`.
-4. Analysis pipeline #TBC
+`analysis.ipynb` is a brief showcase of all the major functions.
 
-**From CLI**
-#TBC
+**From a Python session:**
+1. Run ` from Modules.TravNetUser import TravNet` to import the `TravNet` class.
+2. Create an instance `travnet = TravNet()`
+3. Run `wide_df, long_df = travnet.generate_travel_data(N)`, where `N` is the number of individuals for whom you want to generate weekly travel schedules.
+4. This returns travel schedules (pd.DataFrame) in wide and long format and saves the long format in `/Results_N` as a `.pkl`.
+5. Run `travnet.output_aggregate_stats()` to print aggregate stats from real and generated data.
+6. Run `travnet.plot_histograms()` to plot histograms, which will save to `/Plots`.
 
 ### Developer
 
 **Directory Structure**
 
-#TBC work out how to add docstrings of different functions #FIRST PRIORITY after wright-up
+.
+├── Analysis.ipynb               # Jupyter notebook for final analyses
+├── Models/                      # Trained models and diary outputs
+├── Modules/                     # Core Python modules and configs
+├── Plots/                       # Visualizations of losses and histograms
+├── Results/                     # Pickled result outputs
+├── data/                        # Raw and processed NTS data
+├── tensors/                     # Processed tensors for model training
+├── environment.yml              # Conda environment specification
+├── pyproject.toml               # Project metadata
+└── ReadMe.md                    # This file
 
 ## Version History
 

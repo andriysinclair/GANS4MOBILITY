@@ -19,15 +19,35 @@ nts_day = data_folder + "/day_eul_2002-2023.tab"
 
 def wrangler(merged_df, drop_fraction  = 0.3) -> pd.DataFrame:
     """
-    Applied to the merged DataFrame. Drops columns with excessive missing values. and performs basic cleaning.
-    Used in conjunction with loader function.
+    Load and preprocess National Travel Survey (NTS) data.
+
+    This function:
+    - Loads all relevant NTS components (trip, individual, vehicle, household, etc.).
+    - Filters for selected survey years and car trips only.
+    - Merges datasets on appropriate keys.
+    - Applies optional wrangling and transformation functions.
+    - Optionally returns either raw merged data or a subset for training (based on `features`, `outcomes`, etc.).
 
     Args:
-        merged_df (pd.DataFrame): The merged df.    
-        drop_fraction (float, optional): The minimum number of missing values before columns is dropped. Defaults to 0.3.
+        output_file_name (str): Filename to save the merged and processed data.
+        wrangle_func (function, optional): Function to apply to the merged dataframe. Defaults to `wrangler`.
+        nts_trip (str, optional): Path to trip dataset.
+        nts_vehicle (str, optional): Path to vehicle dataset.
+        nts_i (str, optional): Path to individual dataset.
+        nts_household (str, optional): Path to household dataset.
+        nts_psu (str, optional): Path to PSU dataset.
+        nts_day (str, optional): Path to day dataset.
+        chunksize (int, optional): Number of rows to load per chunk. Useful for large datasets. Defaults to 100000.
+        survey_years (list, optional): List of years to include. Defaults to [2017].
+        drop_fraction (float, optional): Threshold for dropping columns with missing data. Passed to `wrangler`.
+        return_raw (bool, optional): If True, returns full merged dataset after wrangling. Otherwise returns subset based on `config.py`.
+        features (list, optional): List of feature column names.
+        outcomes (list, optional): List of outcome column names.
+        extra_vars (list, optional): Additional columns to include.
+        features_one_hot (list, optional): List of one-hot categorical features.
 
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+        pd.DataFrame: Processed and merged dataset, optionally filtered for modeling.
     """
     merged_df = merged_df.copy()
 
@@ -313,6 +333,11 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
 
     if return_raw:
 
+        with open(output_chunks_file + "_raw.pkl", "wb") as f:
+            pickle.dump(merged_df, f)   
+
+        print("\nMerged chunks saved to pickle!")
+
         return merged_df
     
     else:
@@ -327,7 +352,7 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
 
         ts_df.loc[:, "TravelWeekDay_B01ID"] = ts_df.loc[:, "TravelWeekDay_B01ID"].astype(int)
 
-        with open(output_chunks_file, "wb") as f:
+        with open(output_chunks_file + ".pkl", "wb") as f:
             pickle.dump(ts_df, f)   
 
         print("\nMerged chunks saved to pickle!")

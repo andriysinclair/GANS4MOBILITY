@@ -139,7 +139,6 @@ class RNNmodel(nn.Module):
 
 max_journey_seq = 10
 
-#Load tensors #TODO Get a better file path to your tensors
 
 with open(tensors_folder + "/tensors.pkl", "rb") as f:
     (X, y_cont_raw, y_cat_raw) = pickle.load(f)
@@ -149,21 +148,6 @@ with open(tensors_folder + "/tensors.pkl", "rb") as f:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Training running on: {device}")
 
-# Total input tensor
-
-X = X.to(torch.float32).to(device)
-
-# Targets only
-
-y_ts_te = X[:,7:,:,:2*max_journey_seq].to(torch.float32).to(device)
-y_distance = X[:,7:,:,2*max_journey_seq:3*max_journey_seq].to(torch.float32).to(device)
-y_purpouse = X[:,7:,:,3*max_journey_seq:4*max_journey_seq].to(torch.long).to(device)
-y_istrip = X[:,7:,:,4*max_journey_seq:5*max_journey_seq].to(torch.float32).to(device)
-
-y_ts = y_ts_te[:,:,:,0::2]
-y_te = y_ts_te[:,:,:,1::2]
-
-y_duration = y_te - y_ts
 
 ### Adding weights for imbalanced categories
 
@@ -216,7 +200,7 @@ binary_weightings = return_categorical_weightings(y_istrip[:,:,:], num_cats=2)
 logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
 
 def train_evaluate_TravNet(i_to_loop,
-                           trained_model_path,
+                           trained_model_path=None,
                            X=X,
                            rnn_model=RNNmodel(),
                            ce_weighting=ce_weighting,
@@ -257,8 +241,25 @@ def train_evaluate_TravNet(i_to_loop,
         If training: trained model, wide-format travel diary DataFrame, long-format diary DataFrame.
         If evaluation: wide-format travel diary DataFrame, long-format diary DataFrame.
     """
+# Total input tensor
+    X = X.clone()
+    X = X.to(torch.float32).to(device)
+
+    # Targets only
+
+    y_ts_te = X[:,7:,:,:2*max_journey_seq].to(torch.float32).to(device)
+    y_distance = X[:,7:,:,2*max_journey_seq:3*max_journey_seq].to(torch.float32).to(device)
+    y_purpouse = X[:,7:,:,3*max_journey_seq:4*max_journey_seq].to(torch.long).to(device)
+    y_istrip = X[:,7:,:,4*max_journey_seq:5*max_journey_seq].to(torch.float32).to(device)
+
+    y_ts = y_ts_te[:,:,:,0::2]
+    y_te = y_ts_te[:,:,:,1::2]
+
+    y_duration = y_te - y_ts
 
     if not evaluation:
+        rnn_model = RNNmodel()
+        rnn_model.train()
         rnn_model = rnn_model.to(device)
 
     else:
@@ -546,15 +547,8 @@ def train_evaluate_TravNet(i_to_loop,
 
         plt.tight_layout()
 
-        plt.savefig(Plots_folder + "/Losses.pdf", format="pdf", bbox_inches="tight")
+        plt.savefig(Plots_folder + f"/Losses{X.shape[0]}.pdf", format="pdf", bbox_inches="tight")
 
-        with open(Models_folder + f"/wide_diaries{X.shape[0]}.pkl", "wb") as f:
-            pickle.dump(full_df, f)
-
-        with open(Models_folder + f"/long_diaries{X.shape[0]}.pkl", "wb") as f:
-            pickle.dump(long_full_df, f)
-
-        torch.save(rnn_model.state_dict(), Models_folder + f"/TravNet{X.shape[0]}.pt")
 
     # Creating Travel DFs
 
@@ -578,6 +572,14 @@ def train_evaluate_TravNet(i_to_loop,
     # Return fully trained model wide and long complete travel dfs
 
     if not evaluation:
+
+        with open(Models_folder + f"/wide_diaries{X.shape[0]}.pkl", "wb") as f:
+            pickle.dump(full_df, f)
+
+        with open(Models_folder + f"/long_diaries{X.shape[0]}.pkl", "wb") as f:
+            pickle.dump(long_full_df, f)
+
+        torch.save(rnn_model.state_dict(), Models_folder + f"/TravNet{X.shape[0]}.pt")
 
         return rnn_model, full_df, long_full_df
     

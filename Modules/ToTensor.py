@@ -4,6 +4,7 @@ import sys
 import torch
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
+import logging
 
 def impute_missing_travel_week_for_i(i_df, 
                                      i_id, 
@@ -19,31 +20,30 @@ def impute_missing_travel_week_for_i(i_df,
                                      scikit_minmax_scaler,
                                      scikit_onehot_scaler) -> pd.DataFrame:
     """
-    impute_missing_travel_week_for_i 
+    Impute missing weekdays with no travel for a given individual.
 
-    Imputes days of the week with no travel for i with 0s
+    Adds rows with zero-valued outcome variables for weekdays on which the individual has no travel data.
+    Also applies cyclical, log, and min-max scaling transformations to the resulting dataframe.
 
     Args:
-        i_df (pd.DataFrame): DataFrame subset by individual i
-        i_id (int): Individual id on which to subset data
-        full_week_encoding (set): all entries of a week
-        features (list): features, from config.py
-        outcomes (list): outcomes, from config.py
-        features_numerical (list): ... from config.py
-        features_one_hot (list): ... from config.py
-        extra_vars (list): ...
-        cyclical_encoder (func): custom cyclical encoder, from Transformations.py
-        custom_numerical_scaler (funct): ... from Transformations.py
-        log_transformer (func): ...
-        scikit_minmax_scaler (sklearn instance): scikit learn MinMax scaler instance, in config.py
-        scikit_onehot_scaler (sklearn instance): scikit learn OneHot scaler instance, in config.py
+        i_df (pd.DataFrame): Subset of the data for an individual.
+        i_id (int): ID of the individual.
+        full_week_encoding (set): Set of all days in the week (e.g., {1,2,...,7}).
+        features (list): List of feature column names.
+        outcomes (list): List of outcome column names.
+        features_numerical (list): List of numerical feature names.
+        features_one_hot (list): List of one-hot encoded feature names.
+        extra_vars (list): List of extra variables not used in modeling.
+        cyclical_encoder (function): Function to apply cyclical encoding.
+        custom_numerical_scaler (function): Function to scale numerical values to [0,1].
+        log_transformer (function): Function to apply log1p transform.
+        scikit_minmax_scaler (MinMaxScaler): Pre-fitted MinMaxScaler.
+        scikit_onehot_scaler (OneHotEncoder): Pre-fitted OneHotEncoder.
 
     Returns:
-        pd.DataFrame: Imputed travel df for i
-    """    
-    
-
-        
+        pd.DataFrame: Transformed and imputed dataframe for the individual.
+    """
+ 
     break_flag = False
 
     # Travel days with travel 
@@ -146,31 +146,36 @@ def transform_to_wide_for_i(i_df,
                             max_journey_seq=10,
                             seq_length=7) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    transform_to_wide_for_i 
+    Transform a long-format individual dataframe into wide format.
 
-    Transformed dataframe to wideformat for an individual
+    Pivot the individual's dataframe so each row represents one day of the week, with journey features
+    encoded in wide format. Also separates continuous and categorical outcomes for modeling.
 
     Args:
-
-        i_df (pd.DataFrame): DataFrame subset by individual i
-        i_id (int): Individual id on which to subset data
-        full_week_encoding (set): all entries of a week
-        features (list): features, from config.py
-        outcomes (list): outcomes, from config.py
-        features_numerical (list): ... from config.py
-        features_one_hot (list): ... from config.py
-        extra_vars (list): ...
-        cyclical_encoder (func): custom cyclical encoder, from Transformations.py
-        custom_numerical_scaler (funct): ... from Transformations.py
-        log_transformer (func): ...
-        scikit_minmax_scaler (sklearn instance): scikit learn MinMax scaler instance, in config.py
-        scikit_onehot_scaler (sklearn instance): scikit learn OneHot scaler instance, in config.py
-        max_journey_seq (int, optional): Max journey per day cut-off for individual (Limit length of wide df). Defaults to 10.
-        seq_length (int, optional): Days of the week. Defaults to 7.
+        i_df (pd.DataFrame): Subset of the data for an individual.
+        i_id (int): ID of the individual.
+        full_week_encoding (set): Set of all weekdays (e.g., {1,2,...,7}).
+        features (list): Input feature columns.
+        outcomes (list): Target variable columns.
+        categorical_outcome_vars (list): List of categorical target column names.
+        features_numerical (list): Numerical input feature columns.
+        features_cyclical (list): Names of cyclical feature columns.
+        features_one_hot (list): One-hot encoded feature columns.
+        extra_vars (list): Extra non-modeled columns to remove.
+        cyclical_encoder (function): Function to encode cyclical features.
+        custom_numerical_scaler (function): Function to scale numerical features.
+        log_transformer (function): Function to log-transform distance features.
+        scikit_minmax_scaler (MinMaxScaler): Fitted scaler for numerical features.
+        scikit_onehot_scaler (OneHotEncoder): Fitted scaler for one-hot features.
+        max_journey_seq (int, optional): Max journeys per day. Defaults to 10.
+        seq_length (int, optional): Sequence length (usually 7 for weekdays). Defaults to 7.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: full wide df, categorical targets only wide df, continous targets only df.
-    """    
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: 
+            - Full wide-format dataframe.
+            - Continuous target columns.
+            - Categorical target columns.
+    """
 
     df = i_df.copy()
 
@@ -268,35 +273,38 @@ def prepare_data_for_LSTM(long_df,
                           max_journey_seq=10, 
                           seq_length = 7):# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:# -> Index[str] | tuple[Tensor, Tensor, Tensor] | DataFrame | Any:
     """
-    prepare_data_for_LSTM 
+    Prepare input features and targets for LSTM training from long-format travel data.
 
-    Uses the previous functions in the following pipeline:
-    impute_missing_travel_week_for_i -> transform_to_wide_for_i
-    On an individual level dataset
-    Then combines them all into a tensor for all individuals
+    Applies imputation, wide-format transformation, feature engineering, and tensor conversion
+    on a per-individual basis. Optionally returns debug information or intermediate data.
 
     Args:
-        long_df (pd.DataFrame): Full DF, original long format, subset for relevant variables in config.py, which to transform into a tensor 
-        features (list): features, from config.py
-        outcomes (list): outcomes, from config.py
-        features_numerical (list): ... from config.py
-        features_one_hot (list): ... from config.py
-        extra_vars (list): ...
-        cyclical_encoder (func): custom cyclical encoder, from Transformations.py
-        custom_numerical_scaler (funct): ... from Transformations.py
-        log_transformer (func): ...
-        scikit_minmax_scaler (sklearn instance): scikit learn MinMax scaler instance, in config.py
-        scikit_onehot_scaler (sklearn instance): scikit learn OneHot scaler instance, in config.py
-        max_journey_seq (int, optional): Max journey per day cut-off for individual (Limit length of wide df). Defaults to 10.
-        seq_length (int, optional): Days of the week. Defaults to 7.
-        impute_missing_travel_weeks (bool, optional): Defaults to True.
-        transform_to_wide (bool, optional): Defaults to False.
-        transform_to_tensor (bool, optional): Defaults to False.
-        debug (bool, optional): Prints the steps in the pipeline and indices for all the features for a random i. Defaults to False.
+        long_df (pd.DataFrame): Full long-format dataset (filtered for relevant features).
+        features (list): Feature column names.
+        outcomes (list): Target column names.
+        categorical_outcome_vars (list): List of categorical target column names.
+        features_numerical (list): Numerical input features.
+        features_cyclical (list): Cyclical input features.
+        features_one_hot (list): One-hot encoded input features.
+        extra_vars (list): Extra variables to be ignored or dropped.
+        cyclical_encoder (function): Function for cyclical encoding.
+        custom_numerical_scaler (function): Function for scaling time variables.
+        log_transformer (function): Function for transforming trip distance.
+        scikit_minmax_scaler (MinMaxScaler): Fitted scaler for numerical columns.
+        scikit_onehot_scaler (OneHotEncoder): Fitted encoder for categorical columns.
+        impute_missing_travel_weeks (bool, optional): Whether to add missing travel days. Defaults to True.
+        transform_to_wide (bool, optional): Whether to reshape to wide format. Defaults to False.
+        transform_to_tensor (bool, optional): Whether to convert final output to torch tensors. Defaults to False.
+        debug (bool, optional): If True, prints example processing steps for one individual. Defaults to False.
+        max_journey_seq (int, optional): Max journeys per weekday. Defaults to 10.
+        seq_length (int, optional): Number of time steps (weekdays). Defaults to 7.
 
     Returns:
-        torch.tensor: Should return feature tensors for all i, continous target tensors and categorical targets tensors. May return other things depending on the bools chosen.
-    """    
+        torch.Tensor | pd.DataFrame | List[str]: 
+            - If `transform_to_tensor`: Tensors (X, y_cont, y_cat).
+            - If `transform_to_wide`: List of wide-format DataFrames.
+            - If `debug`: List of column names for a single debug example.
+    """
     
     df = long_df.copy()
 
@@ -432,7 +440,7 @@ def prepare_data_for_LSTM(long_df,
                                                                                   scikit_onehot_scaler=scikit_onehot_scaler,
                                                                                   scikit_minmax_scaler=scikit_minmax_scaler)
 
-                    print(f"{full_df.shape}, {targets_cont.shape}, {targets_cat.shape}")
+                    logging.debug(f"{full_df.shape}, {targets_cont.shape}, {targets_cat.shape}")
                     
                     if transform_to_tensor:
 
@@ -459,8 +467,7 @@ def prepare_data_for_LSTM(long_df,
                         #display(targets)
                         df_chunks.append(full_df)
 
-            sys.stdout.write(f"\rIndividual {i+1} out of {len(individual_ids)} Complete!    ")
-            sys.stdout.flush()
+            logging.debug(f"Individual {i+1} out of {len(individual_ids)} Complete!")
 
         if transform_to_tensor:
             individual_tensors = torch.stack(individual_tensors, dim=0)
