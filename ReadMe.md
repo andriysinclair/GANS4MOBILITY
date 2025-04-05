@@ -72,8 +72,8 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 **Directory Structure**
 
 .
-├── Analysis.ipynb               # Jupyter notebook for final analyses
-├── Models/                      # Trained models and diary outputs
+├── Analysis.ipynb               # Jupyter notebook showcasing main features
+├── Models/                      # Trained models
 ├── Modules/                     # Core Python modules and configs
 ├── Plots/                       # Visualizations of losses and histograms
 ├── Results/                     # Pickled result outputs
