@@ -67,6 +67,9 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 5. Run `travnet.output_aggregate_stats()` to print aggregate stats from real and generated data.
 6. Run `travnet.plot_histograms()` to plot histograms, which will save to `/Plots`.
 
+*Note*
+* If one does not run `travnet.generate_travel_data(N)` prior to running `travnet.output_aggregate_stats()` and/or `travnet.plot_histograms()`. Then, the original generated data for 10,000 individuals will be used as the results will reflect those of the paper.
+
 ### Developer
 
 **Directory Structure**
