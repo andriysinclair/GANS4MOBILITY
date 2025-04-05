@@ -38,7 +38,7 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 
 ## Getting Started
 
-`analysis.ipynb` showcases all the main functions of in around 1 minute. Just press play :)
+`analysis.ipynb` showcases all the main functions of this package in around 1 minute. Just press play :)
 
 ### Installing
 
