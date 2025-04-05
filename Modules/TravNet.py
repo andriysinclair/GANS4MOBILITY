@@ -11,6 +11,9 @@ from .Transformations import *
 from pathlib import Path
 import random
 
+# Configure basic logging
+logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
+
 # Setting paths
 
 root_folder = str(  Path(__file__).parent.parent   )
@@ -483,6 +486,14 @@ def train_evaluate_TravNet(i_to_loop,
 
         plt.savefig(Plots_folder + "/Losses.pdf", format="pdf", bbox_inches="tight")
 
+        with open(Models_folder + f"/wide_diaries{X.shape[0]}.pkl", "wb") as f:
+            pickle.dump(full_df, f)
+
+        with open(Models_folder + f"/long_diaries{X.shape[0]}.pkl", "wb") as f:
+            pickle.dump(long_full_df, f)
+
+        torch.save(rnn_model.state_dict(), Models_folder + f"/TravNet{X.shape[0]}.pt")
+
     # Creating Travel DFs
 
     full_df = pd.concat(complete_travel_diaries_dfs)
@@ -510,69 +521,45 @@ def train_evaluate_TravNet(i_to_loop,
     
     else:
         return full_df, long_full_df
-
-
-if  __name__ == "__main__":
-
-    matplotlib.use('Agg')  # Use non-interactive backend
-
-    # Checking shape of tensors
-
-    # Configure basic logging
-    logging.basicConfig(level=logging.INFO, force=True, format='%(levelname)s: %(message)s')
-
+    
+def show_model_specs(index, X=X, y_istrip=y_istrip, y_ts =y_ts, y_te=y_te, 
+                     y_distance=y_distance, y_duration = y_duration,
+                     y_purpouse=y_purpouse, ce_weighting = ce_weighting, model=RNNmodel()):
+    
     logging.info(f"root folder: {root_folder}")
     logging.info(f"tensors folder: {tensors_folder}")
     logging.info(f"Plots folder: {Plots_folder}")
 
-    show_config = True
+    print(f"X: {X.shape}")
 
-    if show_config:
+    print(f"y_ts: {y_ts.shape}")
+    print(y_ts[index,0,:,:])
 
-        index = 7
+    print(f"y_te: {y_te.shape}")
+    print(y_te[index,0,:,:])
 
-        print(f"X: {X.shape}")
+    print(f"y_duration: {y_duration.shape}")
+    print(y_duration[index,0,:,:])
 
-        print(f"y_istrip: {y_istrip.shape}")
-        print(y_istrip[index,0,:,:])
+    print(f"y_distance: {y_distance.shape}")
+    print(y_distance[index,0,:,:])
 
-        print(f"y_ts: {y_ts.shape}")
-        print(y_ts[index,0,:,:])
+    print(y_purpouse[index,0,:,:].shape)
+    print(f"y_purpouse: {y_purpouse[index,0,:,:]}")
 
-        print(f"y_te: {y_te.shape}")
-        print(y_te[index,0,:,:])
+    print(f"y_istrip: {y_istrip[index,0,:,:].shape}")
+    print(y_istrip[index,0,:,:])
 
-        print(f"y_distance: {y_distance.shape}")
-        print(y_distance[index,0,:,:])
+    print("Final CE Weights:", ce_weighting)
 
-        print(y_purpouse[index,0,:,:])
-        print(f"y_purpouse: {y_purpouse.shape}")
+    for a,b in model.named_parameters():
+        print(a,b.shape)
 
-        print(f"y_istrip: {y_istrip.shape}")
-        print(y_istrip[index,0,:,:].shape)
 
-        print(f"y_duration: {y_duration.shape}")
-        print(y_duration[index,0,:,:])
+if  __name__ == "__main__":
 
-        print("Final CE Weights:", ce_weighting)
+    print("...")
 
-        # Printing model parameters
 
-        model = RNNmodel()
-
-        for a,b in model.named_parameters():
-            print(a,b.shape)
-
-    # Train NN
-
-    TravNet, wide_diaries, long_diaries = train_evaluate_TravNet(i_to_loop=X.shape[0])  # Training on all samples
-
-    with open(Models_folder + f"/wide_diaries{X.shape[0]}.pkl", "wb") as f:
-        pickle.dump(wide_diaries, f)
-
-    with open(Models_folder + f"/long_diaries{X.shape[0]}.pkl", "wb") as f:
-        pickle.dump(long_diaries, f)
-
-    torch.save(TravNet.state_dict(), Models_folder + f"/TravNet{X.shape[0]}.pt")
 
 

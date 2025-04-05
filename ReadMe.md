@@ -70,17 +70,19 @@ This travel simulator is built using the UK National Travel Survey (link in the 
 
 **Directory Structure**
 
-# TBC work out how to add docstrings of different functions
+#TBC work out how to add docstrings of different functions #FIRST PRIORITY after wright-up
 
 ## Version History
 
-* 0.0.1 - Pre-release
-    * Various bug fixes and optimizations
-    * See [commit change]() or See [release history]()
-* 0.0.2 - Pre-release
-
-* 1.0.0
-    * Initial Release
+* v0.0.1 - Pre-release
+    * Neural network running, but no rationality conditions to resemble actual travel data.
+    * See [v0.0.1](https://github.com/andriysinclair/TravNet/releases/tag/v0.0.1) 
+* v0.0.2 - Pre-release
+    * Added rationality conditions.
+    * See [v0.0.2](https://github.com/andriysinclair/TravNet/releases/tag/v0.0.2) 
+* 0.0.3 - Pre-release
+    * Matrix based losses
+    * See [v0.0.3](https://github.com/andriysinclair/TravNet/releases/tag/v0.0.3) 
 
 ## Acknowledgments
 
