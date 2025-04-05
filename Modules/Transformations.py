@@ -31,7 +31,7 @@ def log_transformer(x, inverse=False):
 def return_correlated_columns(df, ro, outcome_col="TripPurpose_B01ID"):
 
     df = df.copy()
-    df = df.drop(columns=["TripPurpose_B02ID", "TripPurpose_B04ID"], axis=1)
+    df = df.drop(columns=["TripPurpose_B02ID", "TripPurpose_B04ID"], axis=1, errors="ignore")
 
     if outcome_col == "TripPurpose_B01ID":
 

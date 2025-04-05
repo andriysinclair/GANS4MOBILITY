@@ -5,10 +5,6 @@ import torch
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
 
-# Out-of-the-box scikit encoders
-standard_mms = MinMaxScaler()
-ohe = OneHotEncoder(sparse_output=False)
-
 def impute_missing_travel_week_for_i(i_df, 
                                      i_id, 
                                      full_week_encoding, 
@@ -20,8 +16,8 @@ def impute_missing_travel_week_for_i(i_df,
                                      cyclical_encoder,
                                      custom_numerical_scaler,
                                      log_transformer,
-                                     scikit_minmax_scaler=standard_mms,
-                                     scikit_onehot_scaler=ohe):
+                                     scikit_minmax_scaler,
+                                     scikit_onehot_scaler):
         
     break_flag = False
 
@@ -120,8 +116,8 @@ def transform_to_wide_for_i(i_df,
                             cyclical_encoder,
                             custom_numerical_scaler,
                             log_transformer,
-                            scikit_minmax_scaler=standard_mms,
-                            scikit_onehot_scaler=ohe,
+                            scikit_minmax_scaler,
+                            scikit_onehot_scaler,
                             max_journey_seq=10,
                             seq_length=7):
 
@@ -212,8 +208,8 @@ def prepare_data_for_LSTM(long_df,
                           cyclical_encoder,
                           custom_numerical_scaler,
                           log_transformer,
-                          scikit_minmax_scaler=standard_mms,
-                          scikit_onehot_scaler=ohe,
+                          scikit_minmax_scaler,
+                          scikit_onehot_scaler,
                           impute_missing_travel_weeks=True, 
                           transform_to_wide=False, 
                           transform_to_tensor=False, 
@@ -222,6 +218,11 @@ def prepare_data_for_LSTM(long_df,
                           seq_length = 7):
 
     df = long_df.copy()
+
+    # Fit encoders
+
+    scikit_minmax_scaler.fit_transform(df[features_numerical])
+    scikit_onehot_scaler.fit_transform(df[features_one_hot])
            
 
     #df = df[~df["DVLALengthBand_B01ID"].isin([-8, -10])]

@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 import pickle
+import config as cfg
 
 #TODO Make a more dynamic path system later
 
@@ -72,7 +73,7 @@ def wrangler(merged_df, drop_fraction  = 0.3):
     logging.debug("% missing vals per column")
     for col,missing_count in merged_df_analysis.isna().sum().items():
         if missing_count/len(merged_df_analysis) >= 0.001:
-            logging.info(f"{col}: {missing_count/len(merged_df_analysis):.2f}")
+            logging.debug(f"{col}: {missing_count/len(merged_df_analysis):.2f}")
 
         if missing_count/len(merged_df_analysis) >= drop_fraction:
             cols_missing.append(col)
@@ -251,7 +252,8 @@ def wrangler(merged_df, drop_fraction  = 0.3):
 
 def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehicle=nts_vehicle, nts_i=nts_i, nts_household=nts_household, 
            nts_psu=nts_psu, nts_day=nts_day, chunksize = 100000, 
-           sample_size = 10000, survey_years=2017, drop_fraction=0.3):
+           sample_size = 10000, survey_years=2017, drop_fraction=0.3, return_raw=False, features = cfg.features, outcomes = cfg.outcomes,
+           extra_vars = cfg.extra_vars, features_one_hot = cfg.features_one_hot):
 
     """
     Loads, merges, and processes National Travel Survey (NTS) datasets in chunks.
@@ -429,14 +431,30 @@ def loader(output_file_name, wrangle_func=wrangler, nts_trip=nts_trip, nts_vehic
 
     #merged_df["NumTrips"] = merged_df.groupby(["IndividualID_x", "TravelWeekDay_B01ID"])["TravelWeekDay_B01ID"].transform("count")
 
-    with open(output_chunks_file, "wb") as f:
-        pickle.dump(merged_df, f)   
-
-    print("\nMerged chunks saved to pickle!")
-
     #merged_df = pd.concat(merged_chunks, ignore_index=True)
 
-    return merged_df
+    if return_raw:
+
+        return merged_df
+    
+    else:
+
+        ts_df = merged_df[features + outcomes + extra_vars]
+
+        # Apply cyclical encoding to cyclical column, assuming the same categories that appear in 2017 appear elsewhere
+
+
+        for col in features_one_hot:
+            ts_df.loc[:,col] = ts_df.loc[:,col].astype(int)
+
+        ts_df.loc[:, "TravelWeekDay_B01ID"] = ts_df.loc[:, "TravelWeekDay_B01ID"].astype(int)
+
+        with open(output_chunks_file, "wb") as f:
+            pickle.dump(ts_df, f)   
+
+        print("\nMerged chunks saved to pickle!")
+
+        return ts_df
 
 
 

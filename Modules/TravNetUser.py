@@ -28,6 +28,7 @@ class TravNet:
         self.Plots_folder = self.root_folder + "/Plots"
         self.Models_folder = self.root_folder + "/Models"
         self.Results_folder = self.root_folder + "/Results"
+        self.data_folder = self.root_folder + "/data"
 
         # Loading Tensors
 
@@ -44,11 +45,13 @@ class TravNet:
 
         logging.info(f"Running on: {self.device}")
 
-        self.results = None
+        with open(self.Results_folder + "/Results_10000.pkl", "rb") as f:
+            self.results = pickle.load(f)
 
         # Loading in true data
 
-        self.true_data_path = 
+        with open(self.data_folder + "/merged_df2017.pkl", "rb") as f:
+            self.nts_df = pickle.load(f)
 
     def generate_travel_data(self,N, return_df = False):
 
@@ -134,11 +137,120 @@ class TravNet:
         real_stats  = data_real.agg(["mean", "median", "std"]).round(2)
 
         return gen_stats, real_stats
+    
+    def output_aggregate_stats(self):
+
+        # Plotting value counts of purpouse
+        print("Purpouse Value counts (Gen)")
+
+        r = self.results["Purpouse"].value_counts(normalize=True).round(2)
+
+        print(f"{'Purpouse':<15} | {'Proportion':>10}")
+        print("-" * 30)
+        for k, v in r.items():
+            print(f"{k:<15} | {v:>10.2f}")
+
+        print("Purpouse Value counts (True)")
+
+        r = self.nts_df["TripPurpose_B01ID"].value_counts(normalize=True).round(2)
+
+        print(f"{'Purpouse':<15} | {'Proportion':>10}")
+        print("-" * 30)
+        for k, v in r.items():
+            print(f"{k:<15} | {v:>10.2f}")
+
+
+        gen_stats, real_stats = self.get_agg_stats(self.nts_df, self.results)
+
+        print("Overall Aggregate stats")
+        print("Generated")
+        print(gen_stats)
+        print("Real")
+        print(real_stats)
+        print("")
+
+        for p in self.results["Purpouse"].unique():
+            gen_stats, real_stats = self.get_agg_stats(self.nts_df[self.nts_df["TripPurpose_B01ID"]==p], self.results[self.results["Purpouse"]==p])
+            print(f"Aggregate stats for purpouse=={p}")
+            print("Generated")
+            print(gen_stats)
+            print("Real")
+            print(real_stats)
+            print("")
+    
+
+    def create_histograms(self, variable_real, variable_gen, purpouse, percentile=None):
+
+        data_real = self.nts_df.copy()
+
+        data_real["Duration"] = data_real["TripEnd"] - data_real["TripStart"]
+        data_gen = self.results.copy()
+
+        data_real = data_real[data_real[variable_real] >= 0]
+        data_gen = data_gen[data_gen[variable_gen] >= 0]
+
+        # filtering for purpouse
+        data_real = data_real[data_real["TripPurpose_B01ID"]==purpouse]
+        data_gen = data_gen[data_gen["Purpouse"]==purpouse]
+
+        if percentile is not None:
+            p = data_real[variable_real].quantile(percentile)
+
+            data_real = data_real[data_real[variable_real]<=p]
+            data_gen = data_gen[data_gen[variable_gen]<=p]
+
+        median_real = data_real[variable_real].mean()
+        median_gen = data_gen[variable_gen].mean()
+
+        std_real = data_real[variable_real].std()
+        std_gen = data_gen[variable_gen].std()
+
+        plt.hist(data_real[variable_real], alpha=0.2, bins= 10, label="Real data")
+        plt.hist(data_gen[variable_gen], bins= 10, alpha=0.7, label="Generated data")
+
+        ymin, ymax = plt.ylim()
+        xmin, xmax = plt.xlim()
+
+
+        plt.text(x=xmax/50, y=2*ymax/3, s =f"Median (Real): {median_real:.2f}\nMedian (Gen): {median_gen:.2f}\nStd (Real): {std_real:.2f}\nStd (Gen): {std_gen:.2f}")
+
+        plt.grid()
+
+    def plot_histograms(self):
+        rows = len(self.results["Purpouse"].unique())
+        plt.figure(figsize=(15,10))
+
+        for i,p in enumerate(self.results["Purpouse"].unique()):
+
+            plt.subplot(rows,3,1 + 3*i)
+
+            plt.title(f"TripStart for purpouse={p}")
+
+            self.create_histograms(variable_real="TripStart", variable_gen="TripStart", purpouse=p)
+
+            plt.tight_layout()
+
+            plt.subplot(rows,3,2 + 3*i)
+
+            plt.title(f"Duration for purpouse={p}")
+
+            self.create_histograms(variable_real="Duration", variable_gen="Duration", purpouse=p, percentile=0.95)
+
+            plt.tight_layout()
+
+            plt.subplot(rows,3,3 + 3*i)
+
+            plt.title(f"Distance for purpouse={p}")
+
+            self.create_histograms(variable_real="TripDisExSW", variable_gen="Distance", purpouse=p, percentile=0.95)
+
+            plt.tight_layout()
+
+            plt.legend()
+            
+
+            plt.savefig(self.Plots_folder + "/Results_hist.pdf", format="pdf", bbox_inches="tight")
         
-    def evaluate(self, path_to_gen=None):
-
-
-
 
 if __name__ == "__main__":
 
